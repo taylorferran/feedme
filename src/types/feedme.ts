@@ -42,19 +42,19 @@ export interface PaymentPreview {
 }
 
 export const SUPPORTED_CHAINS = {
-  baseSepolia: {
-    id: 84532,
-    name: 'Base Sepolia',
+  base: {
+    id: 8453,
+    name: 'Base',
     icon: '🔵',
   },
-  arbitrumSepolia: {
-    id: 421614,
-    name: 'Arbitrum Sepolia',
+  arbitrum: {
+    id: 42161,
+    name: 'Arbitrum',
     icon: '🔷',
   },
-  sepolia: {
-    id: 11155111,
-    name: 'Sepolia',
+  mainnet: {
+    id: 1,
+    name: 'Ethereum',
     icon: '⟠',
   },
 } as const

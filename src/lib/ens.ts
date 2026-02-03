@@ -1,10 +1,10 @@
 import { namehash, encodeFunctionData } from 'viem'
 
-// Sepolia ENS contracts
+// Mainnet ENS contracts
 export const ENS_CONTRACTS = {
   registry: '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
-  publicResolver: '0xE99638b40E4Fff0129D56f03b55b6bbC4BBE49b5',
-  nameWrapper: '0x0635513f179D50A207757E05759CbD106d7dFcE8',
+  publicResolver: '0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63',
+  nameWrapper: '0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401',
 } as const
 
 // FeedMe text record keys
@@ -65,6 +65,17 @@ export const ENS_REGISTRY_ABI = [
     stateMutability: 'view',
     inputs: [{ name: 'node', type: 'bytes32' }],
     outputs: [{ name: '', type: 'address' }],
+  },
+] as const
+
+// NameWrapper ABI (for wrapped names - ERC1155)
+export const NAME_WRAPPER_ABI = [
+  {
+    name: 'ownerOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'id', type: 'uint256' }],
+    outputs: [{ name: 'owner', type: 'address' }],
   },
 ] as const
 

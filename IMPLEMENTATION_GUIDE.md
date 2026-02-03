@@ -6,59 +6,44 @@ This guide walks through building FeedMe step by step. Each phase builds on the 
 
 ## Current Status
 
-**Scaffolding complete.** The app has:
-- Vite + React + TypeScript setup
-- Tailwind CSS configured
-- wagmi + RainbowKit for wallet connection
-- React Router with 3 routes
-- Placeholder pages (Home, Setup, Feed)
-- Type definitions for FeedMe config
+**Phase 1 & 5 complete.** We can:
+- Read FeedMe config from ENS text records
+- Write FeedMe config to ENS text records
+- Display monster based on saved preferences
+
+**Next up:** Phase 2 (LI.FI Quote Integration) to show real swap quotes.
 
 ---
 
-## Phase 1: ENS Integration (Read)
+## Phase 1: ENS Integration (Read) ✅ COMPLETE
 
 **Goal:** Fetch recipient preferences from ENS text records
 
 ### Tasks
 
-- [ ] **1.1** Create `useEnsConfig` hook
-  - Use viem's `getEnsText` to read text records
-  - Read: `feedme.chain`, `feedme.token`, `feedme.protocol`, `feedme.vault`
+- [x] **1.1** Create `useEnsConfig` hook
+  - Use wagmi's `useReadContracts` to read text records
+  - Read: `feedme.chain`, `feedme.token`, `feedme.protocol`
   - Read: `feedme.monsterName`, `feedme.monsterType`
   - Handle loading/error states
 
-- [ ] **1.2** Update Feed page to use real ENS data
+- [x] **1.2** Update Feed page to use real ENS data
   - Replace hardcoded config with `useEnsConfig(ens)`
   - Show loading skeleton while fetching
   - Handle "not configured" state gracefully
 
-- [ ] **1.3** Add ENS avatar/name display
-  - Fetch ENS avatar if available
+- [x] **1.3** Add ENS name display
   - Display recipient's ENS name prominently
 
-### Files to create/modify
+### Files created
 ```
-src/hooks/useEnsConfig.ts     # New - ENS reading hook
-src/pages/Feed.tsx            # Modify - use real ENS data
-```
-
-### Key code pattern
-```typescript
-import { normalize } from 'viem/ens'
-import { usePublicClient } from 'wagmi'
-
-export function useEnsConfig(ensName: string) {
-  const client = usePublicClient({ chainId: 1 }) // ENS on mainnet
-
-  // Use useQuery to fetch all text records
-  // Keys: feedme.chain, feedme.token, feedme.protocol, etc.
-}
+src/hooks/useEnsConfig.ts     ✅ Created
+src/pages/Feed.tsx            ✅ Updated
 ```
 
 ---
 
-## Phase 2: LI.FI Quote Integration
+## Phase 2: LI.FI Quote Integration ⬅️ CURRENT
 
 **Goal:** Show users what they'll get before they send
 
@@ -73,12 +58,11 @@ export function useEnsConfig(ensName: string) {
   - Input: sender token/chain/amount, recipient config
   - Output: expected output amount, gas estimate, route details
   - Debounce input changes
-  - Cache recent quotes
 
-- [ ] **2.3** Build token/chain selector components
-  - Dropdown for sender's token selection
-  - Dropdown for sender's chain selection
-  - Show user's balances for each token
+- [x] **2.3** Build token/chain selector components
+  - Dropdown for sender's token selection ✅ Done
+  - Dropdown for sender's chain selection ✅ Done
+  - Show user's balances for each token (TODO)
 
 - [ ] **2.4** Update Feed page with live quotes
   - Show quote while user types amount
@@ -89,10 +73,7 @@ export function useEnsConfig(ensName: string) {
 ```
 src/lib/lifi.ts               # New - LI.FI SDK setup
 src/hooks/usePaymentQuote.ts  # New - quote fetching
-src/hooks/useTokenBalances.ts # New - user's balances
-src/components/TokenSelect.tsx # New - token picker
-src/components/ChainSelect.tsx # New - chain picker
-src/pages/Feed.tsx            # Modify - add selectors + quote display
+src/pages/Feed.tsx            # Modify - add quote display
 ```
 
 ### Key code pattern
@@ -106,7 +87,7 @@ const quote = await getQuote({
   toChain: recipientChainId,
   toToken: recipientTokenAddress,
   fromAddress: senderAddress,
-  toAddress: recipientAddress, // The vault/protocol address!
+  toAddress: recipientAddress,
 })
 ```
 
@@ -234,39 +215,35 @@ src/pages/Feed.tsx            # Modify - integrate monster
 
 ---
 
-## Phase 5: ENS Setup Flow
+## Phase 5: ENS Setup Flow ✅ COMPLETE
 
 **Goal:** Let recipients configure their FeedMe preferences
 
 ### Tasks
 
-- [ ] **5.1** Create ENS write utilities
+- [x] **5.1** Create ENS write utilities
   - Check if user owns the ENS name
   - Build text record update transaction
   - Handle resolver differences
 
-- [ ] **5.2** Build multi-step setup wizard
-  - Step 1: Connect wallet, verify ENS ownership
-  - Step 2: Choose chain
-  - Step 3: Choose token
-  - Step 4: Choose protocol + vault
-  - Step 5: Name your monster
-  - Step 6: Preview & confirm
+- [x] **5.2** Build setup form
+  - Connect wallet, verify ENS ownership
+  - Choose chain, token, protocol
+  - Name your monster + pick type
+  - Preview & confirm
 
-- [ ] **5.3** Add setup preview
+- [x] **5.3** Add setup preview
   - Show how the Feed page will look
   - Generate shareable link
 
-- [ ] **5.4** Handle gas for ENS updates
-  - Show estimated gas cost
-  - Support batching multiple text records
+- [x] **5.4** Handle gas for ENS updates
+  - Support batching multiple text records (multicall)
 
-### Files to create/modify
+### Files created
 ```
-src/lib/ens.ts                # New - ENS write utilities
-src/hooks/useEnsSetup.ts      # New - setup flow state
-src/components/SetupWizard.tsx # New - multi-step form
-src/pages/Setup.tsx           # Modify - use wizard
+src/lib/ens.ts                ✅ Created
+src/hooks/useEnsSetup.ts      ✅ Created
+src/pages/Setup.tsx           ✅ Updated
 ```
 
 ---
@@ -299,23 +276,18 @@ src/pages/Setup.tsx           # Modify - use wizard
   - Open Graph meta tags
   - Twitter card support
 
-- [ ] **6.5** Analytics (optional)
-  - Track successful feeds
-  - Popular routes
-  - Error rates
-
 ---
 
 ## Contract Addresses Reference
 
-### Aave V3 Pool Addresses
+### Aave V3 Pool Addresses (Mainnet)
 ```
 Base:     0xA238Dd80C259a72e81d7e4664a9801593F98d1c5
 Arbitrum: 0x794a61358D6845594F94dc1DB02A252b5b4814aD
 Mainnet:  0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
 ```
 
-### Common Token Addresses
+### Common Token Addresses (Mainnet)
 ```
 # USDC
 Base:     0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
@@ -330,45 +302,29 @@ Mainnet:  0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
 
 ---
 
-## Testing Strategy
+## Testing Checklist
 
-### Manual Testing Checklist
-- [ ] Can connect wallet on multiple chains
-- [ ] ENS lookup works for real ENS names
+- [x] Can connect wallet on multiple chains
+- [x] ENS lookup works for real ENS names (taylortest.eth)
+- [x] ENS write works (saved Ghosty the Kraken)
 - [ ] Quote updates when amount changes
 - [ ] Can execute swap on testnet
 - [ ] Cross-chain transaction completes
 - [ ] DeFi deposit is received by recipient
-
-### Testnet Setup
-1. Get testnet ETH from faucets (Base Sepolia, Arbitrum Sepolia)
-2. Get testnet USDC from Circle faucet
-3. Set up test ENS on Sepolia
-4. Use Aave V3 testnet deployments
 
 ---
 
 ## Running the App
 
 ```bash
-# Install dependencies
 npm install
-
-# Create .env file
-cp .env.example .env
-# Add your WalletConnect project ID
-
-# Start dev server
 npm run dev
-
-# Build for production
-npm run build
 ```
 
 ---
 
 ## Next Steps
 
-Start with **Phase 1** (ENS Integration) — it's the foundation everything else builds on. Once you can read ENS text records, you can test the full flow with hardcoded demo data.
+**Phase 2** is next — integrate LI.FI to get real swap quotes.
 
-Want to tackle Phase 1 now?
+Ready to implement?

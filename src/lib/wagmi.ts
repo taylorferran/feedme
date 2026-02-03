@@ -1,15 +1,16 @@
 import { http } from 'wagmi'
-import { sepolia, baseSepolia, arbitrumSepolia } from 'wagmi/chains'
+import { mainnet, base, arbitrum } from 'wagmi/chains'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 
+// Use CORS-friendly public RPC endpoints
 export const config = getDefaultConfig({
   appName: 'FeedMe',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
-  chains: [sepolia, baseSepolia, arbitrumSepolia],
+  chains: [mainnet, base, arbitrum],
   transports: {
-    [sepolia.id]: http(),
-    [baseSepolia.id]: http(),
-    [arbitrumSepolia.id]: http(),
+    [mainnet.id]: http('https://mainnet.gateway.tenderly.co'),
+    [base.id]: http('https://mainnet.base.org'),
+    [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
   },
 })
 

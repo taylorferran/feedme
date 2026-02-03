@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useChainId, useSwitchChain } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
+import { mainnet } from 'wagmi/chains'
 import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS } from '../types/feedme'
-import { useEnsOwner, useSetFeedMeConfig } from '../hooks/useEnsSetup'
+import { useEnsOwner, useEnsResolver, useSetFeedMeConfig } from '../hooks/useEnsSetup'
 
 const MONSTER_TYPES = [
   { id: 'octopus', emoji: '🐙', name: 'Octopus' },
@@ -28,9 +28,12 @@ export function Setup() {
 
   // ENS hooks
   const { data: ensOwner, isLoading: isCheckingOwner } = useEnsOwner(ensName || undefined)
-  const { setConfig, isPending, isConfirming, isSuccess, error, hash } = useSetFeedMeConfig()
+  const { data: resolverAddress } = useEnsResolver(ensName || undefined)
+  const { setConfig, isPending, isConfirming, isSuccess, error, hash } = useSetFeedMeConfig(
+    resolverAddress as `0x${string}` | undefined
+  )
 
-  const isOnSepolia = chainId === sepolia.id
+  const isOnMainnet = chainId === mainnet.id
   const isOwner = ensOwner && address && ensOwner.toLowerCase() === address.toLowerCase()
   const isFormComplete = ensName && selectedChain && selectedToken && selectedProtocol && monsterName
 
@@ -52,23 +55,23 @@ export function Setup() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Setup Your Monster</h1>
           <p className="text-zinc-400">
-            Configure where your payments should go. Settings are stored on ENS.
+            Configure where your payments should go. Settings are stored on ENS (Ethereum mainnet).
           </p>
         </div>
 
         <div className="mb-8 flex items-center gap-4">
           <ConnectButton />
-          {isConnected && !isOnSepolia && (
+          {isConnected && !isOnMainnet && (
             <button
-              onClick={() => switchChain({ chainId: sepolia.id })}
+              onClick={() => switchChain({ chainId: mainnet.id })}
               className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm"
             >
-              Switch to Sepolia
+              Switch to Ethereum
             </button>
           )}
         </div>
 
-        {isConnected && isOnSepolia ? (
+        {isConnected && isOnMainnet ? (
           <div className="space-y-6">
             {/* ENS Name Input */}
             <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
@@ -92,6 +95,11 @@ export function Setup() {
                     <span className="text-red-400">✗ You don't own this name</span>
                   ) : (
                     <span className="text-zinc-500">Name not found</span>
+                  )}
+                  {resolverAddress && (
+                    <div className="text-zinc-500 text-xs mt-1">
+                      Resolver: {resolverAddress.slice(0, 10)}...
+                    </div>
                   )}
                 </div>
               )}
@@ -235,7 +243,7 @@ export function Setup() {
               <div className="bg-green-900/20 border border-green-500 rounded-xl p-4 text-green-400">
                 <p>Success! Your FeedMe is configured.</p>
                 <a
-                  href={`https://sepolia.etherscan.io/tx/${hash}`}
+                  href={`https://etherscan.io/tx/${hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm underline"
@@ -266,7 +274,7 @@ export function Setup() {
           </div>
         ) : isConnected ? (
           <div className="text-center py-12 text-zinc-500">
-            Please switch to Sepolia to configure your ENS
+            Please switch to Ethereum mainnet to configure your ENS
           </div>
         ) : (
           <div className="text-center py-12 text-zinc-500">
