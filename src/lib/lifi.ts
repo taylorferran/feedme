@@ -1,10 +1,33 @@
 import { createConfig, getQuote, getTokens } from '@lifi/sdk'
+import { encodeFunctionData } from 'viem'
 
 // Initialize LI.FI SDK
 createConfig({
   integrator: 'feedme',
   apiKey: import.meta.env.VITE_LIFI_API_KEY,
 })
+
+// Aave V3 Pool addresses per chain
+export const AAVE_V3_POOL: Record<number, string> = {
+  1: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2', // Ethereum mainnet
+  8453: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5', // Base
+  42161: '0x794a61358D6845594F94dc1DB02A252b5b4814aD', // Arbitrum
+}
+
+// Aave supply function ABI (minimal)
+export const AAVE_SUPPLY_ABI = [
+  {
+    name: 'supply',
+    type: 'function',
+    inputs: [
+      { name: 'asset', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'onBehalfOf', type: 'address' },
+      { name: 'referralCode', type: 'uint16' },
+    ],
+    outputs: [],
+  },
+] as const
 
 // Chain IDs (using raw numbers to avoid enum issues)
 export const CHAIN_IDS = {
@@ -132,6 +155,113 @@ export async function fetchQuote(params: {
   })
 
   return result as unknown as LiFiQuote
+}
+
+// Fetch a quote with contract call (swap + deposit in one tx)
+export async function fetchContractCallsQuote(params: {
+  fromChain: number
+  toChain: number
+  fromToken: string
+  toToken: string
+  fromAmount: string
+  fromAddress: string
+  toAddress: string
+  protocol: string
+}): Promise<LiFiQuote> {
+  const { fromChain, toChain, fromToken, toToken, fromAmount, fromAddress, toAddress, protocol } = params
+
+  // For Aave, we need to encode the supply call
+  if (protocol === 'aave') {
+    const aavePool = AAVE_V3_POOL[toChain]
+    if (!aavePool) {
+      throw new Error(`Aave not supported on chain ${toChain}`)
+    }
+
+    // Step 1: Get a regular quote to know the expected output amount
+    const preliminaryQuote = await fetchQuote({
+      fromChain,
+      toChain,
+      fromToken,
+      toToken,
+      fromAmount,
+      fromAddress,
+      toAddress,
+    })
+
+    const expectedOutput = preliminaryQuote.estimate?.toAmountMin || preliminaryQuote.estimate?.toAmount
+    if (!expectedOutput) {
+      throw new Error('Could not determine expected output amount')
+    }
+
+    // Step 2: Encode the Aave supply call with the expected amount
+    const supplyCallData = encodeFunctionData({
+      abi: AAVE_SUPPLY_ABI,
+      functionName: 'supply',
+      args: [
+        toToken as `0x${string}`, // asset (the token to supply)
+        BigInt(expectedOutput), // use expected output amount
+        toAddress as `0x${string}`, // onBehalfOf (recipient)
+        0, // referralCode
+      ],
+    })
+
+    // Step 3: Use LI.FI's Contract Calls API with the known output amount
+    const response = await fetch('https://li.quest/v1/quote/contractCalls', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(import.meta.env.VITE_LIFI_API_KEY && {
+          'x-lifi-api-key': import.meta.env.VITE_LIFI_API_KEY,
+        }),
+      },
+      body: JSON.stringify({
+        fromChain,
+        toChain,
+        fromToken,
+        toToken,
+        fromAmount,
+        fromAddress,
+        toAddress: aavePool, // Send to Aave pool
+        contractCalls: [
+          {
+            fromAmount: expectedOutput, // Use the expected output from the preliminary quote
+            fromTokenAddress: toToken,
+            toContractAddress: aavePool,
+            toContractCallData: supplyCallData,
+            toContractGasLimit: '300000',
+          },
+        ],
+        integrator: 'feedme',
+        fee: '0', // No integrator fee
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+      throw new Error(error.message || `LI.FI API error: ${response.status}`)
+    }
+
+    const contractCallsQuote = await response.json()
+
+    // Always use the preliminary quote's estimate for display (contract calls response structure differs)
+    return {
+      ...contractCallsQuote,
+      estimate: {
+        ...preliminaryQuote.estimate,
+        ...contractCallsQuote.estimate,
+        // Ensure we always have the output amount from preliminary quote
+        toAmount: preliminaryQuote.estimate?.toAmount,
+        toAmountMin: preliminaryQuote.estimate?.toAmountMin,
+      },
+      action: {
+        ...preliminaryQuote.action,
+        ...contractCallsQuote.action,
+      },
+    }
+  }
+
+  // For other protocols, fall back to regular quote
+  return fetchQuote(params)
 }
 
 // Helper to format token amount from wei

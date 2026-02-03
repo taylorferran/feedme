@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { parseEther, parseUnits } from 'viem'
-import { fetchQuote, getChainId, getTokenAddress, formatTokenAmount, type LiFiQuote } from '../lib/lifi'
+import { fetchQuote, fetchContractCallsQuote, getChainId, getTokenAddress, formatTokenAmount, type LiFiQuote } from '../lib/lifi'
 
 interface UsePaymentQuoteParams {
   fromChainKey: string
@@ -10,6 +10,7 @@ interface UsePaymentQuoteParams {
   toChainKey: string
   toToken: string
   recipientAddress?: string
+  protocol?: string // 'aave', 'lido', etc.
 }
 
 interface QuoteResult {
@@ -29,6 +30,7 @@ export function usePaymentQuote({
   toChainKey,
   toToken,
   recipientAddress,
+  protocol,
 }: UsePaymentQuoteParams): QuoteResult {
   const { address } = useAccount()
   const [quote, setQuote] = useState<LiFiQuote | null>(null)
@@ -69,15 +71,30 @@ export function usePaymentQuote({
         fromAmountWei = parseUnits(fromAmount, 18).toString()
       }
 
-      const result = await fetchQuote({
-        fromChain: fromChainId,
-        toChain: toChainId,
-        fromToken: fromTokenAddress,
-        toToken: toTokenAddress,
-        fromAmount: fromAmountWei,
-        fromAddress: address,
-        toAddress: toAddress,
-      })
+      // Use contract calls quote for Aave (swap + deposit in one tx)
+      let result: LiFiQuote
+      if (protocol === 'aave') {
+        result = await fetchContractCallsQuote({
+          fromChain: fromChainId,
+          toChain: toChainId,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromAmount: fromAmountWei,
+          fromAddress: address,
+          toAddress: toAddress,
+          protocol: 'aave',
+        })
+      } else {
+        result = await fetchQuote({
+          fromChain: fromChainId,
+          toChain: toChainId,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromAmount: fromAmountWei,
+          fromAddress: address,
+          toAddress: toAddress,
+        })
+      }
 
       setQuote(result)
       setError(null)
@@ -100,7 +117,7 @@ export function usePaymentQuote({
     } finally {
       setIsLoading(false)
     }
-  }, [fromChainKey, fromToken, fromAmount, toChainKey, toToken, address, recipientAddress])
+  }, [fromChainKey, fromToken, fromAmount, toChainKey, toToken, address, recipientAddress, protocol])
 
   // Debounce the quote fetch
   useEffect(() => {

@@ -1,10 +1,12 @@
 import { useParams } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { useState } from 'react'
 import { useEnsConfig } from '../hooks/useEnsConfig'
 import { usePaymentQuote } from '../hooks/usePaymentQuote'
+import { useFeedTransaction } from '../hooks/useFeedTransaction'
 import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS } from '../types/feedme'
+import { getChainId } from '../lib/lifi'
 
 const MONSTER_EMOJIS: Record<string, string> = {
   octopus: '🐙',
@@ -17,11 +19,17 @@ const MONSTER_EMOJIS: Record<string, string> = {
 export function Feed() {
   const { ens } = useParams<{ ens: string }>()
   const { isConnected, address } = useAccount()
+  const currentChainId = useChainId()
+  const { switchChain } = useSwitchChain()
   const [amount, setAmount] = useState('')
   const [selectedToken, setSelectedToken] = useState('ETH')
   const [selectedChain, setSelectedChain] = useState('base')
   const [showTokenDropdown, setShowTokenDropdown] = useState(false)
   const [showChainDropdown, setShowChainDropdown] = useState(false)
+
+  // Check if on the correct chain
+  const targetChainId = getChainId(selectedChain)
+  const isOnCorrectChain = currentChainId === targetChainId
 
   // Fetch real ENS config
   const { config, isLoading, isConfigured } = useEnsConfig(ens)
@@ -33,7 +41,7 @@ export function Feed() {
   const destProtocol = config?.protocol ? SUPPORTED_PROTOCOLS[config.protocol as keyof typeof SUPPORTED_PROTOCOLS] : null
   const destToken = config?.token || 'USDC'
 
-  // Get live quote from LI.FI
+  // Get live quote from LI.FI (with Aave deposit if configured)
   const {
     quote,
     outputAmountFormatted,
@@ -47,7 +55,25 @@ export function Feed() {
     toChainKey: config?.chain || 'base',
     toToken: destToken,
     recipientAddress: address, // For now, use sender address. Later: resolve ENS to address
+    protocol: config?.protocol, // Pass protocol for Aave deposit
   })
+
+  // Transaction execution
+  const {
+    execute,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    simulationError,
+    error: txError,
+    reset,
+  } = useFeedTransaction()
+
+  const handleFeed = () => {
+    if (!quote) return
+    execute(quote, selectedChain)
+  }
 
   if (isLoading) {
     return (
@@ -213,13 +239,78 @@ export function Feed() {
               </div>
             </div>
 
-            {/* Feed Button */}
-            <button
-              disabled={!amount || !quote || isQuoteLoading}
-              className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-xl font-bold text-xl transition-colors"
-            >
-              🍖 FEED {monsterName.toUpperCase()}
-            </button>
+            {/* Transaction Error */}
+            {(txError || simulationError) && (
+              <div className="bg-red-900/20 border border-red-500 rounded-xl p-4 text-red-400">
+                Error: {simulationError || txError?.message}
+              </div>
+            )}
+
+            {/* Transaction Success */}
+            {isSuccess && hash && (
+              <div className="bg-green-900/20 border border-green-500 rounded-xl p-4 text-green-400">
+                <p className="font-bold mb-2">Fed successfully! {monsterEmoji}</p>
+                <div className="space-y-2">
+                  <a
+                    href={
+                      selectedChain === 'base'
+                        ? `https://basescan.org/tx/${hash}`
+                        : selectedChain === 'arbitrum'
+                        ? `https://arbiscan.io/tx/${hash}`
+                        : `https://etherscan.io/tx/${hash}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm underline"
+                  >
+                    View transaction
+                  </a>
+                  {config?.protocol === 'aave' && (
+                    <a
+                      href={`https://app.aave.com/?marketName=proto_${config?.chain === 'base' ? 'base' : config?.chain === 'arbitrum' ? 'arbitrum' : 'mainnet'}_v3`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-sm underline"
+                    >
+                      View Aave position →
+                    </a>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    reset()
+                    setAmount('')
+                  }}
+                  className="block mt-3 text-sm text-green-300 hover:underline"
+                >
+                  Feed again
+                </button>
+              </div>
+            )}
+
+            {/* Switch Network or Feed Button */}
+            {!isSuccess && (
+              !isOnCorrectChain ? (
+                <button
+                  onClick={() => switchChain({ chainId: targetChainId as 1 | 8453 | 42161 })}
+                  className="w-full py-4 bg-yellow-600 hover:bg-yellow-700 rounded-xl font-bold text-xl transition-colors"
+                >
+                  Switch to {SUPPORTED_CHAINS[selectedChain as keyof typeof SUPPORTED_CHAINS]?.name}
+                </button>
+              ) : (
+                <button
+                  onClick={handleFeed}
+                  disabled={!amount || !quote || isQuoteLoading || isPending || isConfirming}
+                  className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-xl font-bold text-xl transition-colors"
+                >
+                  {isPending
+                    ? 'Confirm in wallet...'
+                    : isConfirming
+                    ? `Feeding ${monsterName}...`
+                    : `🍖 FEED ${monsterName.toUpperCase()}`}
+                </button>
+              )
+            )}
 
             {/* Info */}
             <p className="text-center text-sm text-zinc-500">
