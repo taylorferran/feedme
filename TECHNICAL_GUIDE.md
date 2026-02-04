@@ -113,6 +113,7 @@ ENS (Ethereum mainnet)          LI.FI (any mainnet chain)
 | `useEnsOwner` | Check who owns an ENS name |
 | `useSetFeedMeConfig` | WRITE text records to ENS (multicall) |
 | `usePaymentQuote` | Get live swap quotes from LI.FI |
+| `useFeedTransaction` | Execute LI.FI swap/bridge/deposit transaction |
 
 ### Pages
 
@@ -395,7 +396,7 @@ Sender visits /yourname.eth
         │
         ▼
 ┌─────────────────────────┐
-│ useEnsConfig()          │
+│ useEnsConfig()          │  ✅ Implemented
 │ - Reads all feedme.*    │
 │   text records          │
 │ - Returns config object │
@@ -403,9 +404,18 @@ Sender visits /yourname.eth
         │
         ▼
 ┌─────────────────────────┐
+│ useEnsAddress()         │  ✅ Implemented (wagmi)
+│ - Resolves ENS name     │
+│   to Ethereum address   │
+│ - Used for onBehalfOf   │
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
 │ Feed Page renders       │
 │ - Shows monster         │
 │ - Shows recipient prefs │
+│ - Shows recipient addr  │
 └─────────────────────────┘
         │
         ▼
@@ -424,9 +434,10 @@ Sender clicks "FEED"
         │
         ▼
 ┌─────────────────────────┐
-│ useFeedTransaction()    │  ← TODO: Implement
+│ useFeedTransaction()    │  ✅ Implemented
 │ - Executes LI.FI route  │
-│ - Tracks status         │
+│ - Tracks tx status      │
+│ - Shows success/error   │
 └─────────────────────────┘
         │
         ▼
@@ -565,3 +576,226 @@ ENS Registry:    0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 NameWrapper:     0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401
 Public Resolver: 0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63
 ```
+
+---
+
+## ENS Address Resolution: Depositing to Someone Else's Position
+
+### The Core Feature
+
+FeedMe's key feature is that **anyone can deposit to someone else's Aave position**. When you visit `/taylor.eth`, your payment goes to Taylor's Aave position, not yours.
+
+### How It Works
+
+1. **Resolve ENS to Address**: Use wagmi's `useEnsAddress` hook to convert `taylor.eth` → `0x1234...abcd`
+2. **Pass to LI.FI Quote**: The resolved address becomes the `toAddress` parameter
+3. **Aave's onBehalfOf**: In the Aave supply call, this address is used for `onBehalfOf`
+
+```typescript
+// src/pages/Feed.tsx
+import { useEnsAddress } from 'wagmi'
+import { mainnet } from 'wagmi/chains'
+
+// Resolve ENS name to address
+const normalizedEns = ens?.endsWith('.eth') ? ens : `${ens}.eth`
+const { data: ensOwnerAddress, isLoading: isResolvingEns } = useEnsAddress({
+  name: normalizedEns,
+  chainId: mainnet.id,
+})
+
+// Pass to quote hook - this address will receive the Aave deposit
+const { quote } = usePaymentQuote({
+  // ... other params
+  recipientAddress: ensOwnerAddress || undefined,
+  protocol: 'aave',
+})
+```
+
+### Why Aave's onBehalfOf Works
+
+Aave V3's `supply` function has an `onBehalfOf` parameter that explicitly supports third-party deposits:
+
+```solidity
+function supply(
+  address asset,        // Token to deposit (e.g., USDC)
+  uint256 amount,       // Amount to deposit
+  address onBehalfOf,   // WHO receives the aTokens (the position)
+  uint16 referralCode   // Optional referral
+) external;
+```
+
+**Key insight**: No approval or permission is needed from the recipient. Anyone can deposit to anyone's position. This is by design - it enables:
+- Gift deposits
+- Payment forwarding
+- Yield-bearing payments (like FeedMe!)
+
+### The Full Flow
+
+```
+1. Sender visits /taylor.eth
+2. Frontend resolves taylor.eth → 0xABC123...
+3. Sender enters 0.1 ETH, clicks FEED
+4. LI.FI quote generated with:
+   - fromChain: Arbitrum (sender's chain)
+   - toChain: Base (Taylor's preferred chain)
+   - toAddress: 0xABC123... (Taylor's address)
+5. Contract call encoded:
+   supply(USDC, amount, 0xABC123..., 0)
+                        ↑ Taylor's address
+6. Sender signs ONE transaction
+7. ~4 minutes later: Taylor's Aave position increases
+8. Sender never touches Taylor's wallet
+```
+
+### UI Safeguards
+
+The Feed page includes safeguards:
+
+```typescript
+// Disable button if ENS can't be resolved
+disabled={!ensOwnerAddress}
+
+// Show status in button
+{isResolvingEns
+  ? 'Resolving ENS...'
+  : !ensOwnerAddress
+  ? 'Cannot resolve ENS address'
+  : `🍖 FEED ${monsterName.toUpperCase()}`}
+
+// Display resolved address for transparency
+{ensOwnerAddress && (
+  <div className="text-xs text-zinc-600">
+    {ensOwnerAddress.slice(0, 6)}...{ensOwnerAddress.slice(-4)}
+  </div>
+)}
+```
+
+---
+
+## LI.FI Contract Calls API: Swap + Deposit in One Transaction
+
+### The Two-Step Quote Process
+
+For Aave deposits, we use LI.FI's Contract Calls API which requires knowing the output amount upfront:
+
+```typescript
+// src/lib/lifi.ts
+export async function fetchContractCallsQuote(params) {
+  // Step 1: Get preliminary quote to know expected output
+  const preliminaryQuote = await fetchQuote({
+    fromChain, toChain, fromToken, toToken, fromAmount, fromAddress, toAddress,
+  })
+
+  const expectedOutput = preliminaryQuote.estimate?.toAmountMin
+
+  // Step 2: Encode Aave supply call with known amount
+  const supplyCallData = encodeFunctionData({
+    abi: AAVE_SUPPLY_ABI,
+    functionName: 'supply',
+    args: [
+      toToken,              // asset
+      BigInt(expectedOutput), // amount
+      toAddress,            // onBehalfOf (recipient!)
+      0,                    // referralCode
+    ],
+  })
+
+  // Step 3: Call Contract Calls API
+  const response = await fetch('https://li.quest/v1/quote/contractCalls', {
+    method: 'POST',
+    body: JSON.stringify({
+      fromChain, toChain, fromToken, toToken, fromAmount, fromAddress,
+      toAddress: AAVE_POOL_ADDRESS,  // Destination is Aave pool
+      contractCalls: [{
+        fromAmount: expectedOutput,
+        fromTokenAddress: toToken,
+        toContractAddress: AAVE_POOL_ADDRESS,
+        toContractCallData: supplyCallData,
+        toContractGasLimit: '300000',
+      }],
+      integrator: 'feedme',
+      fee: '0',
+    }),
+  })
+
+  return response.json()
+}
+```
+
+### Cross-Chain Transaction Flow
+
+When sender is on ETH mainnet and recipient wants USDC in Aave on Base:
+
+```
+ETH Mainnet (sender signs here)
+├── 0.0001 ETH sent to LI.FI Diamond
+├── Swapped to USDC via DEX (e.g., Magpie Router)
+├── USDC sent to Stargate Pool
+└── Bridged via LayerZero to Base
+
+~4 minutes later...
+
+Base (recipient's position updated)
+├── USDC arrives from bridge
+├── LI.FI executor calls Aave Pool.supply()
+├── aUSDC minted to recipient's address
+└── Recipient sees position in Aave dashboard
+```
+
+### Actual Transaction Example
+
+ETH Side (sender):
+- 0.0001 ETH → LI.FI Diamond
+- Swapped to ~0.227 USDC via Magpie
+- Bridged through Stargate/LayerZero
+
+Base Side (recipient, ~4 min later):
+- 0.223 aBasUSDC minted to recipient
+- 0.003 USDC dust (slippage remainder)
+
+---
+
+## Transaction Execution: useFeedTransaction Hook
+
+### Implementation
+
+```typescript
+// src/hooks/useFeedTransaction.ts
+export function useFeedTransaction() {
+  const currentChainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
+  const { sendTransaction, data: hash, isPending } = useSendTransaction()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+
+  const execute = async (quote: LiFiQuote, fromChainKey: string) => {
+    const { to, data, value, gasLimit } = quote.transactionRequest
+    const targetChainId = getChainId(fromChainKey)
+
+    // Switch chain if needed
+    if (currentChainId !== targetChainId) {
+      await switchChainAsync({ chainId: targetChainId })
+      await new Promise(resolve => setTimeout(resolve, 500)) // Let wallet update
+    }
+
+    // Execute transaction
+    sendTransaction({
+      to: to as `0x${string}`,
+      data: data as `0x${string}`,
+      value: BigInt(value || '0'),
+      gas: gasLimit ? BigInt(gasLimit) : undefined,
+    })
+  }
+
+  return { execute, hash, isPending, isConfirming, isSuccess }
+}
+```
+
+### Transaction States
+
+| State | User Sees | What's Happening |
+|-------|-----------|------------------|
+| `isPending` | "Confirm in wallet..." | Waiting for wallet signature |
+| `isConfirming` | "Feeding Monster..." | Tx submitted, waiting for confirmation |
+| `isSuccess` | "Fed successfully!" | Source chain tx confirmed |
+
+Note: For cross-chain transactions, `isSuccess` means the source chain tx is confirmed. The destination chain deposit happens ~4 minutes later via the bridge.

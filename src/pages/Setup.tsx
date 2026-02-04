@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
-import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS } from '../types/feedme'
+import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS, isProtocolAvailableOnChain, isTokenAcceptedByProtocol } from '../types/feedme'
 import { useEnsOwner, useEnsResolver, useSetFeedMeConfig } from '../hooks/useEnsSetup'
 
 const MONSTER_TYPES = [
@@ -114,7 +114,13 @@ export function Setup() {
                 {Object.entries(SUPPORTED_CHAINS).map(([key, chain]) => (
                   <button
                     key={key}
-                    onClick={() => setSelectedChain(key)}
+                    onClick={() => {
+                      setSelectedChain(key)
+                      // Clear protocol if it's not available on new chain
+                      if (selectedProtocol && !isProtocolAvailableOnChain(selectedProtocol, key)) {
+                        setSelectedProtocol('')
+                      }
+                    }}
                     className={`p-4 rounded-lg border transition-colors ${
                       selectedChain === key
                         ? 'bg-purple-600 border-purple-500'
@@ -133,21 +139,31 @@ export function Setup() {
               <label className="block text-sm font-medium mb-3">
                 What does your monster eat?
               </label>
-              <div className="flex flex-wrap gap-2">
-                {SUPPORTED_TOKENS.map((token) => (
-                  <button
-                    key={token}
-                    onClick={() => setSelectedToken(token)}
-                    className={`px-4 py-2 rounded-lg border transition-colors ${
-                      selectedToken === token
-                        ? 'bg-purple-600 border-purple-500'
-                        : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
-                    }`}
-                  >
-                    {token}
-                  </button>
-                ))}
-              </div>
+              {!selectedProtocol ? (
+                <p className="text-zinc-500 text-sm">Select a protocol first</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {SUPPORTED_TOKENS.map((token) => {
+                    const isAccepted = isTokenAcceptedByProtocol(token, selectedProtocol)
+                    return (
+                      <button
+                        key={token}
+                        onClick={() => isAccepted && setSelectedToken(token)}
+                        disabled={!isAccepted}
+                        className={`px-4 py-2 rounded-lg border transition-colors ${
+                          selectedToken === token
+                            ? 'bg-purple-600 border-purple-500'
+                            : isAccepted
+                            ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
+                            : 'bg-zinc-900 border-zinc-800 opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        {token}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Protocol Selection */}
@@ -155,23 +171,42 @@ export function Setup() {
               <label className="block text-sm font-medium mb-3">
                 Where does your monster live?
               </label>
-              <div className="grid grid-cols-3 gap-3">
-                {Object.entries(SUPPORTED_PROTOCOLS).map(([key, protocol]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedProtocol(key)}
-                    className={`p-4 rounded-lg border transition-colors ${
-                      selectedProtocol === key
-                        ? 'bg-purple-600 border-purple-500'
-                        : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
-                    }`}
-                  >
-                    <span className="text-2xl">{protocol.icon}</span>
-                    <div className="mt-2 font-medium">{protocol.name}</div>
-                    <div className="text-xs text-zinc-500">{protocol.action}</div>
-                  </button>
-                ))}
-              </div>
+              {!selectedChain ? (
+                <p className="text-zinc-500 text-sm">Select a chain first</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {Object.entries(SUPPORTED_PROTOCOLS).map(([key, protocol]) => {
+                    const isAvailable = isProtocolAvailableOnChain(key, selectedChain)
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          if (!isAvailable) return
+                          setSelectedProtocol(key)
+                          // Clear token if it's not accepted by new protocol
+                          if (selectedToken && !isTokenAcceptedByProtocol(selectedToken, key)) {
+                            setSelectedToken('')
+                          }
+                        }}
+                        disabled={!isAvailable}
+                        className={`p-4 rounded-lg border transition-colors ${
+                          selectedProtocol === key
+                            ? 'bg-purple-600 border-purple-500'
+                            : isAvailable
+                            ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
+                            : 'bg-zinc-900 border-zinc-800 opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        <span className="text-2xl">{protocol.icon}</span>
+                        <div className="mt-2 font-medium">{protocol.name}</div>
+                        <div className="text-xs text-zinc-500">
+                          {isAvailable ? protocol.action : 'Not on this chain'}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Monster Name */}

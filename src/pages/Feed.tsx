@@ -1,10 +1,13 @@
 import { useParams } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount, useChainId, useSwitchChain } from 'wagmi'
+import { useAccount, useChainId, useSwitchChain, useEnsAddress } from 'wagmi'
+import { mainnet } from 'wagmi/chains'
 import { useState } from 'react'
 import { useEnsConfig } from '../hooks/useEnsConfig'
 import { usePaymentQuote } from '../hooks/usePaymentQuote'
 import { useFeedTransaction } from '../hooks/useFeedTransaction'
+import { useRecentFeeders } from '../hooks/useRecentFeeders'
+import { RecentFeeders } from '../components/RecentFeeders'
 import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS } from '../types/feedme'
 import { getChainId } from '../lib/lifi'
 
@@ -18,7 +21,7 @@ const MONSTER_EMOJIS: Record<string, string> = {
 
 export function Feed() {
   const { ens } = useParams<{ ens: string }>()
-  const { isConnected, address } = useAccount()
+  const { isConnected } = useAccount()
   const currentChainId = useChainId()
   const { switchChain } = useSwitchChain()
   const [amount, setAmount] = useState('')
@@ -33,6 +36,16 @@ export function Feed() {
 
   // Fetch real ENS config
   const { config, isLoading, isConfigured } = useEnsConfig(ens)
+
+  // Resolve ENS name to address (for depositing to owner's Aave position)
+  const normalizedEns = ens?.endsWith('.eth') ? ens : `${ens}.eth`
+  const { data: ensOwnerAddress, isLoading: isResolvingEns } = useEnsAddress({
+    name: normalizedEns,
+    chainId: mainnet.id,
+  })
+
+  // Debug: log resolved address
+  console.log('ENS resolution:', normalizedEns, '->', ensOwnerAddress)
 
   // Get display values
   const monsterEmoji = MONSTER_EMOJIS[config?.monsterType || 'octopus'] || '🐙'
@@ -54,7 +67,7 @@ export function Feed() {
     fromAmount: amount,
     toChainKey: config?.chain || 'base',
     toToken: destToken,
-    recipientAddress: address, // For now, use sender address. Later: resolve ENS to address
+    recipientAddress: ensOwnerAddress || undefined, // Deposit to ENS owner's Aave position
     protocol: config?.protocol, // Pass protocol for Aave deposit
   })
 
@@ -69,6 +82,12 @@ export function Feed() {
     error: txError,
     reset,
   } = useFeedTransaction()
+
+  // Recent feeders (loads asynchronously)
+  const { feeders, isLoading: isFeedersLoading } = useRecentFeeders(
+    ensOwnerAddress || undefined,
+    config?.chain
+  )
 
   const handleFeed = () => {
     if (!quote) return
@@ -235,8 +254,13 @@ export function Feed() {
               )}
 
               <div className="text-sm text-zinc-500 mt-2">
-                deposited to {destProtocol?.name || config?.protocol} on {destChain?.name || config?.chain}
+                deposited to {ens}'s {destProtocol?.name || config?.protocol} on {destChain?.name || config?.chain}
               </div>
+              {ensOwnerAddress && (
+                <div className="text-xs text-zinc-600 mt-1">
+                  {ensOwnerAddress.slice(0, 6)}...{ensOwnerAddress.slice(-4)}
+                </div>
+              )}
             </div>
 
             {/* Transaction Error */}
@@ -300,10 +324,14 @@ export function Feed() {
               ) : (
                 <button
                   onClick={handleFeed}
-                  disabled={!amount || !quote || isQuoteLoading || isPending || isConfirming}
+                  disabled={!amount || !quote || isQuoteLoading || isPending || isConfirming || !ensOwnerAddress}
                   className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-xl font-bold text-xl transition-colors"
                 >
-                  {isPending
+                  {isResolvingEns
+                    ? 'Resolving ENS...'
+                    : !ensOwnerAddress
+                    ? 'Cannot resolve ENS address'
+                    : isPending
                     ? 'Confirm in wallet...'
                     : isConfirming
                     ? `Feeding ${monsterName}...`
@@ -316,6 +344,13 @@ export function Feed() {
             <p className="text-center text-sm text-zinc-500">
               Powered by LI.FI — swap, bridge & deposit in one transaction
             </p>
+
+            {/* Recent Feeders */}
+            <RecentFeeders
+              feeders={feeders}
+              isLoading={isFeedersLoading}
+              monsterEmoji={monsterEmoji}
+            />
           </div>
         )}
       </div>
