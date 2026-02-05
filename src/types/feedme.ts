@@ -8,8 +8,9 @@ export interface FeedMeConfig {
   action: string
   vault?: string
 
-  // Optional: splits
-  split?: string
+  // Optional: payment splits (V2)
+  // Format: "recipient:percentage,recipient:percentage,..."
+  splits?: string
 
   // Optional: constraints
   minAmount?: string

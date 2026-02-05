@@ -68,6 +68,14 @@ export function useEnsConfig(ensName: string | undefined) {
             args: [node, FEEDME_KEYS.monsterType],
             chainId: mainnet.id,
           },
+          // V2: Payment splits
+          {
+            address: targetResolver,
+            abi: PUBLIC_RESOLVER_ABI,
+            functionName: 'text',
+            args: [node, FEEDME_KEYS.splits],
+            chainId: mainnet.id,
+          },
         ]
       : undefined,
     query: {
@@ -85,6 +93,8 @@ export function useEnsConfig(ensName: string | undefined) {
           action: 'deposit', // Default action
           monsterName: (data[3]?.result as string) || 'Monster',
           monsterType: ((data[4]?.result as string) || 'octopus') as MonsterType,
+          // V2: Payment splits
+          splits: (data[5]?.result as string) || undefined,
         }
       : null
 

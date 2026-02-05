@@ -3,6 +3,7 @@ import { Providers } from './components/Providers'
 import { Home } from './pages/Home'
 import { Setup } from './pages/Setup'
 import { Feed } from './pages/Feed'
+import { YourMonsters } from './pages/YourMonsters'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/setup" element={<Setup />} />
+          <Route path="/monsters" element={<YourMonsters />} />
           <Route path="/:ens" element={<Feed />} />
         </Routes>
       </BrowserRouter>

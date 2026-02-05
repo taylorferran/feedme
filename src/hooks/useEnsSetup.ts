@@ -16,6 +16,8 @@ export interface FeedMeSetupConfig {
   protocol: string
   monsterName: string
   monsterType: string
+  // V2: Payment splits (optional)
+  splits?: string // Format: "recipient:percentage,recipient:percentage,..."
 }
 
 // Hook to get the actual owner of an ENS name (handles both wrapped and unwrapped names)
@@ -156,6 +158,11 @@ export function useSetFeedMeConfig(resolverAddress?: `0x${string}`) {
       [FEEDME_KEYS.protocol]: config.protocol,
       [FEEDME_KEYS.monsterName]: config.monsterName,
       [FEEDME_KEYS.monsterType]: config.monsterType,
+    }
+
+    // V2: Add splits if provided
+    if (config.splits !== undefined) {
+      records[FEEDME_KEYS.splits] = config.splits
     }
 
     // Encode all setText calls

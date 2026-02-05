@@ -24,10 +24,20 @@ export function Home() {
             Setup Your Monster
           </Link>
           <Link
-            to="/vitalik.eth"
+            to="/monsters"
             className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg font-medium transition-colors border border-zinc-700"
           >
-            View Demo
+            Your Monsters
+          </Link>
+        </div>
+
+        {/* Quick demo link */}
+        <div className="mt-8">
+          <Link
+            to="/taylorferran.eth"
+            className="text-sm text-zinc-500 hover:text-purple-400 transition-colors"
+          >
+            View taylorferran.eth →
           </Link>
         </div>
       </div>

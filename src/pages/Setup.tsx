@@ -4,6 +4,8 @@ import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
 import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS, isProtocolAvailableOnChain, isTokenAcceptedByProtocol } from '../types/feedme'
 import { useEnsOwner, useEnsResolver, useSetFeedMeConfig } from '../hooks/useEnsSetup'
+import { SplitConfig } from '../components/SplitConfig'
+import { type Split, serializeSplits, validateSplits } from '../lib/splits'
 
 const MONSTER_TYPES = [
   { id: 'octopus', emoji: '🐙', name: 'Octopus' },
@@ -25,6 +27,7 @@ export function Setup() {
   const [selectedProtocol, setSelectedProtocol] = useState<string>('')
   const [monsterName, setMonsterName] = useState('')
   const [monsterType, setMonsterType] = useState('octopus')
+  const [splits, setSplits] = useState<Split[]>([])
 
   // ENS hooks
   const { data: ensOwner, isLoading: isCheckingOwner } = useEnsOwner(ensName || undefined)
@@ -35,7 +38,9 @@ export function Setup() {
 
   const isOnMainnet = chainId === mainnet.id
   const isOwner = ensOwner && address && ensOwner.toLowerCase() === address.toLowerCase()
-  const isFormComplete = ensName && selectedChain && selectedToken && selectedProtocol && monsterName
+  const splitsValidation = validateSplits(splits)
+  const areSplitsValid = splits.length === 0 || splitsValidation.isValid
+  const isFormComplete = ensName && selectedChain && selectedToken && selectedProtocol && monsterName && areSplitsValid
 
   const handleSubmit = () => {
     if (!isFormComplete) return
@@ -46,6 +51,8 @@ export function Setup() {
       protocol: selectedProtocol,
       monsterName,
       monsterType,
+      // Only include splits if they're configured and valid
+      splits: splits.length > 0 && splitsValidation.isValid ? serializeSplits(splits) : undefined,
     })
   }
 
@@ -134,38 +141,6 @@ export function Setup() {
               </div>
             </div>
 
-            {/* Token Selection */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                What does your monster eat?
-              </label>
-              {!selectedProtocol ? (
-                <p className="text-zinc-500 text-sm">Select a protocol first</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {SUPPORTED_TOKENS.map((token) => {
-                    const isAccepted = isTokenAcceptedByProtocol(token, selectedProtocol)
-                    return (
-                      <button
-                        key={token}
-                        onClick={() => isAccepted && setSelectedToken(token)}
-                        disabled={!isAccepted}
-                        className={`px-4 py-2 rounded-lg border transition-colors ${
-                          selectedToken === token
-                            ? 'bg-purple-600 border-purple-500'
-                            : isAccepted
-                            ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
-                            : 'bg-zinc-900 border-zinc-800 opacity-40 cursor-not-allowed'
-                        }`}
-                      >
-                        {token}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* Protocol Selection */}
             <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
               <label className="block text-sm font-medium mb-3">
@@ -202,6 +177,38 @@ export function Setup() {
                         <div className="text-xs text-zinc-500">
                           {isAvailable ? protocol.action : 'Not on this chain'}
                         </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Token Selection */}
+            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+              <label className="block text-sm font-medium mb-3">
+                What does your monster eat?
+              </label>
+              {!selectedProtocol ? (
+                <p className="text-zinc-500 text-sm">Select a protocol first</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {SUPPORTED_TOKENS.map((token) => {
+                    const isAccepted = isTokenAcceptedByProtocol(token, selectedProtocol)
+                    return (
+                      <button
+                        key={token}
+                        onClick={() => isAccepted && setSelectedToken(token)}
+                        disabled={!isAccepted}
+                        className={`px-4 py-2 rounded-lg border transition-colors ${
+                          selectedToken === token
+                            ? 'bg-purple-600 border-purple-500'
+                            : isAccepted
+                            ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
+                            : 'bg-zinc-900 border-zinc-800 opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        {token}
                       </button>
                     )
                   })}
@@ -246,6 +253,13 @@ export function Setup() {
               </div>
             </div>
 
+            {/* Payment Splits (V2) */}
+            <SplitConfig
+              splits={splits}
+              onChange={setSplits}
+              disabled={isPending || isConfirming}
+            />
+
             {/* Preview */}
             {isFormComplete && (
               <div className="bg-zinc-900 rounded-xl p-6 border border-purple-500/50">
@@ -259,6 +273,21 @@ export function Setup() {
                     Lives in {SUPPORTED_PROTOCOLS[selectedProtocol as keyof typeof SUPPORTED_PROTOCOLS]?.name} on{' '}
                     {SUPPORTED_CHAINS[selectedChain as keyof typeof SUPPORTED_CHAINS]?.name}, eats {selectedToken}
                   </p>
+                  {splits.length > 0 && splitsValidation.isValid && (
+                    <div className="mt-3 text-sm text-zinc-400">
+                      <span className="text-purple-400">Payment splits enabled:</span>
+                      <div className="mt-1 space-y-1">
+                        {splits.map((split, i) => (
+                          <div key={i} className="text-zinc-500">
+                            {split.recipient.length > 20
+                              ? `${split.recipient.slice(0, 10)}...${split.recipient.slice(-6)}`
+                              : split.recipient || '(empty)'
+                            }: {split.percentage}%
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <p className="text-sm text-zinc-500 mt-4">
                     feedme.finance/{ensName}
                   </p>

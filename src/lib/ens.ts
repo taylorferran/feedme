@@ -16,6 +16,8 @@ export const FEEDME_KEYS = {
   vault: 'feedme.vault',
   monsterName: 'feedme.monsterName',
   monsterType: 'feedme.monsterType',
+  // V2: Payment splits
+  splits: 'feedme.splits', // Format: "recipient:percentage,recipient:percentage,..."
 } as const
 
 // Public Resolver ABI (just the functions we need)

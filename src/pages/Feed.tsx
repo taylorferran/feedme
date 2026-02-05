@@ -10,6 +10,7 @@ import { useRecentFeeders } from '../hooks/useRecentFeeders'
 import { RecentFeeders } from '../components/RecentFeeders'
 import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS } from '../types/feedme'
 import { getChainId } from '../lib/lifi'
+import { parseSplits } from '../lib/splits'
 
 const MONSTER_EMOJIS: Record<string, string> = {
   octopus: '🐙',
@@ -53,6 +54,10 @@ export function Feed() {
   const destChain = config?.chain ? SUPPORTED_CHAINS[config.chain as keyof typeof SUPPORTED_CHAINS] : null
   const destProtocol = config?.protocol ? SUPPORTED_PROTOCOLS[config.protocol as keyof typeof SUPPORTED_PROTOCOLS] : null
   const destToken = config?.token || 'USDC'
+
+  // Parse payment splits if configured
+  const parsedSplits = parseSplits(config?.splits)
+  const hasSplits = parsedSplits.isValid && parsedSplits.splits.length > 0
 
   // Get live quote from LI.FI (with Aave deposit if configured)
   const {
@@ -259,6 +264,32 @@ export function Feed() {
               {ensOwnerAddress && (
                 <div className="text-xs text-zinc-600 mt-1">
                   {ensOwnerAddress.slice(0, 6)}...{ensOwnerAddress.slice(-4)}
+                </div>
+              )}
+
+              {/* Payment Splits Preview */}
+              {hasSplits && (
+                <div className="mt-4 pt-4 border-t border-zinc-800">
+                  <div className="text-sm text-purple-400 mb-2">Payment splits:</div>
+                  <div className="space-y-1">
+                    {parsedSplits.splits.map((split, i) => {
+                      const displayRecipient = split.recipient.endsWith('.eth')
+                        ? split.recipient
+                        : `${split.recipient.slice(0, 8)}...${split.recipient.slice(-6)}`
+                      // Calculate split amount from the formatted output
+                      const splitAmount = outputAmountFormatted
+                        ? (parseFloat(outputAmountFormatted) * split.percentage / 100).toFixed(4)
+                        : '--'
+                      return (
+                        <div key={i} className="flex justify-between text-xs">
+                          <span className="text-zinc-400">{displayRecipient}</span>
+                          <span className="text-zinc-300">
+                            {splitAmount} {destToken} ({split.percentage}%)
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
