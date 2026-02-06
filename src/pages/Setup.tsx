@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
@@ -16,6 +17,7 @@ const MONSTER_TYPES = [
 ]
 
 export function Setup() {
+  const navigate = useNavigate()
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
@@ -41,6 +43,18 @@ export function Setup() {
   const splitsValidation = validateSplits(splits)
   const areSplitsValid = splits.length === 0 || splitsValidation.isValid
   const isFormComplete = ensName && selectedChain && selectedToken && selectedProtocol && monsterName && areSplitsValid
+
+  // Redirect to monster page after successful setup
+  useEffect(() => {
+    if (isSuccess && ensName) {
+      // Small delay to let user see the success message
+      const timer = setTimeout(() => {
+        const normalizedName = ensName.endsWith('.eth') ? ensName : `${ensName}.eth`
+        navigate(`/${normalizedName}`)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [isSuccess, ensName, navigate])
 
   const handleSubmit = () => {
     if (!isFormComplete) return
@@ -305,12 +319,13 @@ export function Setup() {
             {/* Success display */}
             {isSuccess && hash && (
               <div className="bg-green-900/20 border border-green-500 rounded-xl p-4 text-green-400">
-                <p>Success! Your FeedMe is configured.</p>
+                <p className="font-medium">Success! Your FeedMe is configured.</p>
+                <p className="text-sm mt-1 text-green-300">Redirecting to your monster page...</p>
                 <a
                   href={`https://etherscan.io/tx/${hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm underline"
+                  className="text-sm underline mt-2 inline-block"
                 >
                   View transaction
                 </a>
