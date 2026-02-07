@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { parseEther, parseUnits } from 'viem'
-import { fetchQuote, fetchContractCallsQuote, getChainId, getTokenAddress, formatTokenAmount, type LiFiQuote } from '../lib/lifi'
+import { fetchQuote, fetchContractCallsQuote, fetchSplitQuote, getChainId, getTokenAddress, formatTokenAmount, type LiFiQuote } from '../lib/lifi'
+import { isSplitterSupported } from '../lib/splitter'
+import type { Split } from '../lib/splits'
 
 interface UsePaymentQuoteParams {
   fromChainKey: string
@@ -11,6 +13,7 @@ interface UsePaymentQuoteParams {
   toToken: string
   recipientAddress?: string
   protocol?: string // 'aave', 'lido', etc.
+  splits?: Split[] // Payment splits (only used when destination chain supports splitter)
 }
 
 interface QuoteResult {
@@ -31,6 +34,7 @@ export function usePaymentQuote({
   toToken,
   recipientAddress,
   protocol,
+  splits,
 }: UsePaymentQuoteParams): QuoteResult {
   const { address } = useAccount()
   const [quote, setQuote] = useState<LiFiQuote | null>(null)
@@ -71,9 +75,26 @@ export function usePaymentQuote({
         fromAmountWei = parseUnits(fromAmount, 18).toString()
       }
 
-      // Use contract calls quote for Aave (swap + deposit in one tx)
+      // Determine which quote function to use
       let result: LiFiQuote
-      if (protocol === 'aave') {
+
+      // Check if splits are configured and supported on destination chain
+      const hasSplits = splits && splits.length > 0 && isSplitterSupported(toChainId)
+
+      if (hasSplits) {
+        // Use split quote - sends to splitter contract which distributes
+        // Note: splits + Aave not yet supported (would need splitter to forward to Aave)
+        result = await fetchSplitQuote({
+          fromChain: fromChainId,
+          toChain: toChainId,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromAmount: fromAmountWei,
+          fromAddress: address,
+          splits: splits,
+        })
+      } else if (protocol === 'aave') {
+        // Use contract calls quote for Aave (swap + deposit in one tx)
         result = await fetchContractCallsQuote({
           fromChain: fromChainId,
           toChain: toChainId,
@@ -85,6 +106,7 @@ export function usePaymentQuote({
           protocol: 'aave',
         })
       } else {
+        // Regular quote - direct transfer
         result = await fetchQuote({
           fromChain: fromChainId,
           toChain: toChainId,
@@ -117,7 +139,7 @@ export function usePaymentQuote({
     } finally {
       setIsLoading(false)
     }
-  }, [fromChainKey, fromToken, fromAmount, toChainKey, toToken, address, recipientAddress, protocol])
+  }, [fromChainKey, fromToken, fromAmount, toChainKey, toToken, address, recipientAddress, protocol, splits])
 
   // Debounce the quote fetch
   useEffect(() => {

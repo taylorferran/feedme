@@ -1,3 +1,4 @@
+
 # FeedMe Technical Guide
 
 This document explains how FeedMe works under the hood.
@@ -103,6 +104,8 @@ ENS (Ethereum mainnet)          LI.FI (any mainnet chain)
 | `src/lib/wagmi.ts` | Wallet connection config (chains, transports) |
 | `src/lib/ens.ts` | ENS contract addresses and ABIs |
 | `src/lib/lifi.ts` | LI.FI SDK setup and quote fetching |
+| `src/lib/splitter.ts` | FeedMeSplitter contract address and ABI |
+| `src/lib/splits.ts` | Payment splits parsing and validation |
 | `src/types/feedme.ts` | TypeScript types and constants |
 
 ### Hooks
@@ -121,6 +124,7 @@ ENS (Ethereum mainnet)          LI.FI (any mainnet chain)
 |------|-------|---------|
 | Home | `/` | Landing page |
 | Setup | `/setup` | Configure your monster (writes to ENS) |
+| Your Monsters | `/monsters` | View all your ENS names and their configs |
 | Feed | `/:ens` | Payment page for a specific ENS name |
 
 ---
@@ -477,6 +481,11 @@ Registry:       0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 Public Resolver: 0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63
 ```
 
+### FeedMeSplitter
+```
+Base: 0xdae12bd760ce15AaDdcD883E54a8F86f9084d3fB
+```
+
 ### Aave V3 Pool
 ```
 Ethereum: 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
@@ -799,3 +808,148 @@ export function useFeedTransaction() {
 | `isSuccess` | "Fed successfully!" | Source chain tx confirmed |
 
 Note: For cross-chain transactions, `isSuccess` means the source chain tx is confirmed. The destination chain deposit happens ~4 minutes later via the bridge.
+
+---
+
+## FeedMeSplitter Contract: Payment Splits
+
+### Overview
+
+The FeedMeSplitter contract enables splitting incoming payments to multiple recipients. When a sender pays to a monster with splits configured, the funds are distributed according to the configured percentages.
+
+### Contract Details
+
+```
+Chain:    Base
+Address:  0xdae12bd760ce15AaDdcD883E54a8F86f9084d3fB
+```
+
+### How Splits Work
+
+```
+Sender pays 1 ETH
+       │
+       ▼
+┌──────────────────────────┐
+│ LI.FI (swap/bridge)      │
+│ - Swaps ETH → USDC       │
+│ - Bridges to Base        │
+│ - Sends to Splitter      │
+└──────────────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│ FeedMeSplitter Contract  │
+│                          │
+│ distribute(USDC, [       │
+│   alice: 5000 bps (50%)  │
+│   bob:   3000 bps (30%)  │
+│   carol: 2000 bps (20%)  │
+│ ])                       │
+└──────────────────────────┘
+       │
+       ├──► Alice receives 500 USDC
+       ├──► Bob receives 300 USDC
+       └──► Carol receives 200 USDC
+```
+
+### Contract Functions
+
+```solidity
+// Distribute ERC20 tokens
+function distribute(
+    address token,           // Token to distribute
+    address[] recipients,    // Array of recipient addresses
+    uint256[] bps           // Basis points (10000 = 100%)
+) external;
+
+// Distribute native ETH
+function distributeETH(
+    address[] recipients,
+    uint256[] bps
+) external payable;
+```
+
+### Basis Points
+
+We use basis points (bps) for precision:
+- 10000 bps = 100%
+- 5000 bps = 50%
+- 100 bps = 1%
+
+The last recipient gets the remainder to avoid dust from rounding.
+
+### Chain Support
+
+| Chain | Splitter Available | Address |
+|-------|-------------------|---------|
+| Base | Yes | `0xdae12bd760ce15AaDdcD883E54a8F86f9084d3fB` |
+| Arbitrum | No (pending deployment) | - |
+| Mainnet | No (gas too expensive) | - |
+
+### UI Behavior
+
+- Splits option only appears when Base is selected
+- Switching to mainnet/arbitrum clears any configured splits
+- Each split adds ~50k gas (~$0.01-0.05 on Base)
+
+### ENS Text Record Format
+
+Splits are stored in ENS as a comma-separated string:
+
+```
+feedme.splits = "recipient1:percentage,recipient2:percentage,..."
+```
+
+Example:
+```
+feedme.splits = "0x1234...abcd:50,collaborator.eth:30,gitcoin.eth:20"
+```
+
+### Code Reference
+
+```typescript
+// src/lib/splitter.ts - Contract address and ABI
+// src/lib/splits.ts - Parsing and validation
+// src/lib/lifi.ts - fetchSplitQuote() for LI.FI integration
+```
+
+---
+
+## Your Monsters Page
+
+### Overview
+
+The `/monsters` page shows all ENS names owned by the connected wallet and their FeedMe configuration status.
+
+### Features
+
+1. **Owned Names**: Lists all .eth names you own
+2. **Configuration Status**: Shows which names have FeedMe configured
+3. **Quick Actions**: View, Edit, or Setup buttons for each name
+4. **Demo Link**: Link to taylorferran.eth as example
+
+### How It Works
+
+```typescript
+// src/hooks/useUserEnsNames.ts
+// Queries the ENS Subgraph to find all names owned by an address
+
+const query = `
+  query GetNames($owner: String!) {
+    domains(where: { owner: $owner }) {
+      name
+      labelhash
+      createdAt
+    }
+  }
+`
+```
+
+### Route
+
+```
+/monsters → YourMonsters component
+```
+
+This page is accessible from the home page "Your Monsters" button.

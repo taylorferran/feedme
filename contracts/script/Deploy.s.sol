@@ -6,9 +6,7 @@ import {FeedMeSplitter} from "../src/FeedMeSplitter.sol";
 
 contract DeployScript is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
-
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         FeedMeSplitter splitter = new FeedMeSplitter();
 

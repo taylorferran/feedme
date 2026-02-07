@@ -1,5 +1,7 @@
 import { createConfig, getQuote, getTokens } from '@lifi/sdk'
 import { encodeFunctionData } from 'viem'
+import { SPLITTER_ADDRESS, SPLITTER_ABI, percentageToBps, isSplitterSupported } from './splitter'
+import type { Split } from './splits'
 
 // Initialize LI.FI SDK
 createConfig({
@@ -262,6 +264,122 @@ export async function fetchContractCallsQuote(params: {
 
   // For other protocols, fall back to regular quote
   return fetchQuote(params)
+}
+
+// Fetch a quote with splits (swap + distribute to multiple recipients)
+export async function fetchSplitQuote(params: {
+  fromChain: number
+  toChain: number
+  fromToken: string
+  toToken: string
+  fromAmount: string
+  fromAddress: string
+  splits: Split[] // Recipients with resolved addresses and percentages
+  protocol?: string
+}): Promise<LiFiQuote> {
+  const { fromChain, toChain, fromToken, toToken, fromAmount, fromAddress, splits } = params
+  // Note: protocol param reserved for future Aave + splits integration
+
+  // Check if splitter is supported on target chain
+  if (!isSplitterSupported(toChain)) {
+    throw new Error(`Splits not supported on chain ${toChain}`)
+  }
+
+  const splitterAddress = SPLITTER_ADDRESS[toChain]
+
+  // Get all resolved addresses and convert percentages to basis points
+  const recipients = splits.map(s => s.resolvedAddress || s.recipient)
+  const bps = splits.map(s => percentageToBps(s.percentage))
+
+  // Step 1: Get a preliminary quote to know the expected output
+  const preliminaryQuote = await fetchQuote({
+    fromChain,
+    toChain,
+    fromToken,
+    toToken,
+    fromAmount,
+    fromAddress,
+    toAddress: splitterAddress,
+  })
+
+  const expectedOutput = preliminaryQuote.estimate?.toAmountMin || preliminaryQuote.estimate?.toAmount
+  if (!expectedOutput) {
+    throw new Error('Could not determine expected output amount')
+  }
+
+  // Step 2: Encode the distribute call
+  const isNativeToken = toToken === NATIVE_TOKEN
+  const distributeCallData = isNativeToken
+    ? encodeFunctionData({
+        abi: SPLITTER_ABI,
+        functionName: 'distributeETH',
+        args: [recipients as `0x${string}`[], bps.map(b => BigInt(b))],
+      })
+    : encodeFunctionData({
+        abi: SPLITTER_ABI,
+        functionName: 'distribute',
+        args: [
+          toToken as `0x${string}`,
+          recipients as `0x${string}`[],
+          bps.map(b => BigInt(b)),
+        ],
+      })
+
+  // Step 3: If also using Aave, we need to chain the calls
+  // For now, splits are only supported for direct token transfers (no Aave)
+  // TODO: Support splits + Aave by having the splitter forward to Aave after splitting
+
+  // Step 4: Use LI.FI's Contract Calls API
+  const response = await fetch('https://li.quest/v1/quote/contractCalls', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(import.meta.env.VITE_LIFI_API_KEY && {
+        'x-lifi-api-key': import.meta.env.VITE_LIFI_API_KEY,
+      }),
+    },
+    body: JSON.stringify({
+      fromChain,
+      toChain,
+      fromToken,
+      toToken,
+      fromAmount,
+      fromAddress,
+      toAddress: splitterAddress,
+      contractCalls: [
+        {
+          fromAmount: expectedOutput,
+          fromTokenAddress: toToken,
+          toContractAddress: splitterAddress,
+          toContractCallData: distributeCallData,
+          toContractGasLimit: String(100000 + splits.length * 50000), // Base gas + per-recipient
+        },
+      ],
+      integrator: 'feedme',
+      fee: '0',
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.message || `LI.FI API error: ${response.status}`)
+  }
+
+  const splitQuote = await response.json()
+
+  return {
+    ...splitQuote,
+    estimate: {
+      ...preliminaryQuote.estimate,
+      ...splitQuote.estimate,
+      toAmount: preliminaryQuote.estimate?.toAmount,
+      toAmountMin: preliminaryQuote.estimate?.toAmountMin,
+    },
+    action: {
+      ...preliminaryQuote.action,
+      ...splitQuote.action,
+    },
+  }
 }
 
 // Helper to format token amount from wei

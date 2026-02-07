@@ -7,6 +7,8 @@ import { SUPPORTED_CHAINS, SUPPORTED_PROTOCOLS, SUPPORTED_TOKENS, isProtocolAvai
 import { useEnsOwner, useEnsResolver, useSetFeedMeConfig } from '../hooks/useEnsSetup'
 import { SplitConfig } from '../components/SplitConfig'
 import { type Split, serializeSplits, validateSplits } from '../lib/splits'
+import { isSplitterSupported } from '../lib/splitter'
+import { getChainId } from '../lib/lifi'
 
 const MONSTER_TYPES = [
   { id: 'octopus', emoji: '🐙', name: 'Octopus' },
@@ -141,6 +143,11 @@ export function Setup() {
                       if (selectedProtocol && !isProtocolAvailableOnChain(selectedProtocol, key)) {
                         setSelectedProtocol('')
                       }
+                      // Clear splits if new chain doesn't support splitter
+                      const newChainId = getChainId(key)
+                      if (!isSplitterSupported(newChainId) && splits.length > 0) {
+                        setSplits([])
+                      }
                     }}
                     className={`p-4 rounded-lg border transition-colors ${
                       selectedChain === key
@@ -267,12 +274,23 @@ export function Setup() {
               </div>
             </div>
 
-            {/* Payment Splits (V2) */}
-            <SplitConfig
-              splits={splits}
-              onChange={setSplits}
-              disabled={isPending || isConfirming}
-            />
+            {/* Payment Splits (V2) - Only available on Base */}
+            {selectedChain && isSplitterSupported(getChainId(selectedChain)) ? (
+              <SplitConfig
+                splits={splits}
+                onChange={setSplits}
+                disabled={isPending || isConfirming}
+              />
+            ) : selectedChain ? (
+              <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+                <label className="block text-sm font-medium mb-3">
+                  Payment Splits
+                </label>
+                <p className="text-zinc-500 text-sm">
+                  Payment splits are only available on Base. Switch to Base to enable splits.
+                </p>
+              </div>
+            ) : null}
 
             {/* Preview */}
             {isFormComplete && (

@@ -59,7 +59,7 @@ export function Feed() {
   const parsedSplits = parseSplits(config?.splits)
   const hasSplits = parsedSplits.isValid && parsedSplits.splits.length > 0
 
-  // Get live quote from LI.FI (with Aave deposit if configured)
+  // Get live quote from LI.FI (with Aave deposit or splits if configured)
   const {
     quote,
     outputAmountFormatted,
@@ -74,6 +74,8 @@ export function Feed() {
     toToken: destToken,
     recipientAddress: ensOwnerAddress || undefined, // Deposit to ENS owner's Aave position
     protocol: config?.protocol, // Pass protocol for Aave deposit
+    // Pass splits if configured - the hook will use splitter contract on Base
+    splits: hasSplits ? parsedSplits.splits : undefined,
   })
 
   // Transaction execution
