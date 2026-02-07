@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 
 .env
+
+# Foundry / Contracts
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
