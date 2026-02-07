@@ -10,6 +10,7 @@ const MONSTER_EMOJIS: Record<string, string> = {
   blob: '👾',
   kraken: '🦑',
   plant: '🌱',
+  ghost: '👻',
 }
 
 export function YourMonsters() {
@@ -20,63 +21,63 @@ export function YourMonsters() {
     <div className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <Link to="/" className="text-zinc-500 hover:text-zinc-300 text-sm mb-4 inline-block">
-            ← Back to Home
+          <Link to="/" className="text-stone-600 hover:text-stone-400 text-sm mb-4 inline-block font-mono">
+            [ ← back to lair ]
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Your Monsters</h1>
-          <p className="text-zinc-400">
-            View and manage your FeedMe configurations
+          <h1 className="text-4xl font-horror text-red-700 mb-2">Your Creatures</h1>
+          <p className="text-stone-500">
+            View and command your summoned creatures
           </p>
         </div>
 
         {!isConnected ? (
-          <div className="bg-zinc-900 rounded-xl p-8 border border-zinc-800 text-center">
+          <div className="bg-stone-950 rounded-sm p-8 border-2 border-stone-800 text-center">
             <div className="text-6xl mb-4">🔗</div>
-            <p className="text-zinc-400 mb-6">
-              Connect your wallet to see your ENS names and monsters
+            <p className="text-stone-500 mb-6 font-brutal tracking-wider">
+              CONNECT TO VIEW YOUR CREATURES
             </p>
             <ConnectButton />
           </div>
         ) : (
           <div className="space-y-6">
             {/* Connected wallet info */}
-            <div className="flex items-center justify-between bg-zinc-900 rounded-xl p-4 border border-zinc-800">
-              <div className="text-sm text-zinc-400">Connected as</div>
+            <div className="flex items-center justify-between bg-stone-950 rounded-sm p-4 border-2 border-stone-800">
+              <div className="text-xs text-stone-600 font-brutal tracking-widest">CONNECTED AS</div>
               <ConnectButton />
             </div>
 
             {/* Loading state */}
             {isLoading && (
-              <div className="bg-zinc-900 rounded-xl p-8 border border-zinc-800 text-center">
+              <div className="bg-stone-950 rounded-sm p-8 border-2 border-stone-800 text-center">
                 <div className="text-4xl mb-4 animate-pulse">🔍</div>
-                <p className="text-zinc-400">Looking for your ENS names...</p>
+                <p className="text-stone-500 font-brutal tracking-wider">SEARCHING FOR YOUR CREATURES...</p>
               </div>
             )}
 
             {/* Error state */}
             {error && (
-              <div className="bg-red-900/20 border border-red-500 rounded-xl p-4 text-red-400">
-                Error: {error}
+              <div className="bg-red-950/50 border-2 border-red-800 rounded-sm p-4 text-red-400 font-mono">
+                <span className="font-brutal tracking-wider text-red-500">ERROR:</span> {error}
               </div>
             )}
 
             {/* No names found */}
             {!isLoading && !error && names.length === 0 && (
-              <div className="bg-zinc-900 rounded-xl p-8 border border-zinc-800 text-center">
-                <div className="text-6xl mb-4">😢</div>
-                <p className="text-zinc-400 mb-4">
-                  No ENS names found for this wallet
+              <div className="bg-stone-950 rounded-sm p-8 border-2 border-stone-800 text-center">
+                <div className="text-6xl mb-4">💀</div>
+                <p className="text-stone-400 mb-4 font-brutal tracking-wider">
+                  NO ENS NAMES FOUND
                 </p>
-                <p className="text-zinc-500 text-sm mb-6">
-                  You need an ENS name to create a FeedMe monster.
+                <p className="text-stone-600 text-sm mb-6 font-mono">
+                  You need an ENS name to summon a FeedMe creature.
                 </p>
                 <a
                   href="https://app.ens.domains"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm transition-colors"
+                  className="inline-block px-6 py-3 bg-red-900 hover:bg-red-800 border-2 border-red-700 rounded-sm text-sm transition-all hover:shadow-[0_0_20px_rgba(153,27,27,0.3)] font-brutal tracking-wider"
                 >
-                  Get an ENS Name →
+                  ACQUIRE ENS NAME →
                 </a>
               </div>
             )}
@@ -84,7 +85,7 @@ export function YourMonsters() {
             {/* ENS names list */}
             {!isLoading && names.length > 0 && (
               <div className="space-y-3">
-                <h2 className="text-sm font-medium text-zinc-400">Your ENS Names</h2>
+                <h2 className="text-xs font-brutal tracking-widest text-stone-600">YOUR ENS NAMES</h2>
                 {names.map((ens) => (
                   <MonsterCard key={ens.name} ensName={ens.name} />
                 ))}
@@ -94,23 +95,23 @@ export function YourMonsters() {
         )}
 
         {/* Demo section */}
-        <div className="mt-12 pt-8 border-t border-zinc-800">
-          <h2 className="text-sm font-medium text-zinc-400 mb-4">See an Example</h2>
+        <div className="mt-12 pt-8 border-t-2 border-stone-800">
+          <h2 className="text-xs font-brutal tracking-widest text-stone-600 mb-4">WITNESS AN EXAMPLE</h2>
           <Link
             to="/taylorferran.eth"
-            className="block bg-zinc-900 rounded-xl p-4 border border-zinc-800 hover:border-purple-500/50 transition-colors group"
+            className="block bg-stone-950 rounded-sm p-4 border-2 border-stone-800 hover:border-red-800/50 transition-all group hover:shadow-[0_0_20px_rgba(153,27,27,0.2)]"
           >
             <div className="flex items-center gap-4">
               <div className="text-4xl">🐉</div>
               <div className="flex-1">
-                <div className="font-medium group-hover:text-purple-400 transition-colors">
+                <div className="font-mono group-hover:text-red-500 transition-colors">
                   taylorferran.eth
                 </div>
-                <div className="text-sm text-zinc-500">
-                  View a configured FeedMe monster
+                <div className="text-sm text-stone-600 font-mono">
+                  View a summoned creature
                 </div>
               </div>
-              <div className="text-zinc-600 group-hover:text-purple-400 transition-colors">
+              <div className="text-stone-700 group-hover:text-red-500 transition-colors">
                 →
               </div>
             </div>
@@ -129,7 +130,7 @@ function MonsterCard({ ensName }: { ensName: string }) {
     : '❓'
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800">
+    <div className="bg-stone-950 rounded-sm p-4 border-2 border-stone-800">
       <div className="flex items-center gap-4">
         {/* Monster emoji or placeholder */}
         <div className="text-4xl">
@@ -142,15 +143,15 @@ function MonsterCard({ ensName }: { ensName: string }) {
 
         {/* Name and status */}
         <div className="flex-1">
-          <div className="font-medium">{ensName}</div>
+          <div className="font-mono">{ensName}</div>
           {isLoading ? (
-            <div className="text-sm text-zinc-500">Loading...</div>
+            <div className="text-sm text-stone-600 font-mono">Loading...</div>
           ) : isConfigured ? (
-            <div className="text-sm text-green-400">
+            <div className="text-sm text-green-500 font-mono">
               {config?.monsterName} • {config?.protocol} on {config?.chain}
             </div>
           ) : (
-            <div className="text-sm text-zinc-500">Not configured yet</div>
+            <div className="text-sm text-stone-600 font-mono">Not yet summoned</div>
           )}
         </div>
 
@@ -159,7 +160,7 @@ function MonsterCard({ ensName }: { ensName: string }) {
           {isConfigured && (
             <Link
               to={`/${ensName}`}
-              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm transition-colors"
+              className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 border border-stone-700 rounded-sm text-sm transition-colors font-mono"
             >
               View
             </Link>
@@ -167,9 +168,9 @@ function MonsterCard({ ensName }: { ensName: string }) {
           <Link
             to="/setup"
             state={{ ensName }}
-            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm transition-colors"
+            className="px-3 py-1.5 bg-red-900 hover:bg-red-800 border border-red-700 rounded-sm text-sm transition-all hover:shadow-[0_0_15px_rgba(153,27,27,0.3)] font-brutal tracking-wider"
           >
-            {isConfigured ? 'Edit' : 'Setup'}
+            {isConfigured ? 'EDIT' : 'SUMMON'}
           </Link>
         </div>
       </div>

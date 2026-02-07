@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useEnsName } from 'wagmi'
+import { mainnet } from 'wagmi/chains'
 
 interface EnsName {
   name: string
@@ -11,13 +13,20 @@ interface UseUserEnsNamesResult {
   error: string | null
 }
 
-// ENS Subgraph endpoint
+// ENS Subgraph - using hosted service (deprecated but may still work)
+// For production, get an API key from https://thegraph.com/studio/
 const ENS_SUBGRAPH_URL = 'https://api.thegraph.com/subgraphs/name/ensdomains/ens'
 
 export function useUserEnsNames(address: string | undefined): UseUserEnsNamesResult {
   const [names, setNames] = useState<EnsName[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Get primary ENS name using wagmi (this always works)
+  const { data: primaryName, isLoading: isPrimaryLoading } = useEnsName({
+    address: address as `0x${string}` | undefined,
+    chainId: mainnet.id,
+  })
 
   useEffect(() => {
     if (!address) {
@@ -44,6 +53,7 @@ export function useUserEnsNames(address: string | undefined): UseUserEnsNamesRes
           }
         `
 
+        // Try the subgraph (might still work for read queries)
         const response = await fetch(ENS_SUBGRAPH_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -54,7 +64,7 @@ export function useUserEnsNames(address: string | undefined): UseUserEnsNamesRes
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch ENS names')
+          throw new Error('Subgraph unavailable')
         }
 
         const data = await response.json()
@@ -63,7 +73,7 @@ export function useUserEnsNames(address: string | undefined): UseUserEnsNamesRes
           throw new Error(data.errors[0]?.message || 'GraphQL error')
         }
 
-        // Filter to only .eth names and exclude subdomains for now
+        // Filter to only .eth names and exclude subdomains
         const ethNames = (data.data?.domains || [])
           .filter((d: { name: string }) => d.name?.endsWith('.eth') && !d.name.includes('.eth.'))
           .map((d: { name: string; expiryDate?: string }) => ({
@@ -72,17 +82,29 @@ export function useUserEnsNames(address: string | undefined): UseUserEnsNamesRes
           }))
 
         setNames(ethNames)
+        setError(null)
       } catch (err) {
-        console.error('Error fetching ENS names:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch ENS names')
-        setNames([])
+        console.error('Error fetching ENS names from subgraph:', err)
+
+        // Fallback: If we have a primary name from wagmi, use that
+        if (primaryName) {
+          setNames([{ name: primaryName }])
+          setError(null)
+        } else {
+          setError('ENS lookup unavailable. Try again later.')
+          setNames([])
+        }
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchNames()
-  }, [address])
+  }, [address, primaryName])
 
-  return { names, isLoading, error }
+  return {
+    names,
+    isLoading: isLoading || isPrimaryLoading,
+    error
+  }
 }

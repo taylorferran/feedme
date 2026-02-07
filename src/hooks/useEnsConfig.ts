@@ -28,8 +28,6 @@ export function useEnsConfig(ensName: string | undefined) {
   // Use the name's resolver, or fall back to public resolver
   const targetResolver = (resolverAddress as `0x${string}`) || ENS_CONTRACTS.publicResolver
 
-  console.log('Reading config from resolver:', targetResolver, 'for name:', normalizedName)
-
   const { data, isLoading, error } = useReadContracts({
     contracts: node && resolverAddress
       ? [

@@ -1,6 +1,6 @@
 import { createConfig, getQuote, getTokens } from '@lifi/sdk'
 import { encodeFunctionData } from 'viem'
-import { SPLITTER_ADDRESS, SPLITTER_ABI, percentageToBps, isSplitterSupported } from './splitter'
+import { SPLITTER_ADDRESS, SPLITTER_ABI, percentageToBps, isSplitterSupported, getAavePoolAddress } from './splitter'
 import type { Split } from './splits'
 
 // Initialize LI.FI SDK
@@ -277,8 +277,7 @@ export async function fetchSplitQuote(params: {
   splits: Split[] // Recipients with resolved addresses and percentages
   protocol?: string
 }): Promise<LiFiQuote> {
-  const { fromChain, toChain, fromToken, toToken, fromAmount, fromAddress, splits } = params
-  // Note: protocol param reserved for future Aave + splits integration
+  const { fromChain, toChain, fromToken, toToken, fromAmount, fromAddress, splits, protocol } = params
 
   // Check if splitter is supported on target chain
   if (!isSplitterSupported(toChain)) {
@@ -290,6 +289,19 @@ export async function fetchSplitQuote(params: {
   // Get all resolved addresses and convert percentages to basis points
   const recipients = splits.map(s => s.resolvedAddress || s.recipient)
   const bps = splits.map(s => percentageToBps(s.percentage))
+
+  // Validate all recipients are valid addresses
+  for (const recipient of recipients) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+      throw new Error(`Invalid recipient address: ${recipient}. Make sure all ENS names are resolved.`)
+    }
+  }
+
+  // Validate bps sum to 10000 (100%)
+  const totalBps = bps.reduce((sum, b) => sum + b, 0)
+  if (totalBps !== 10000) {
+    throw new Error(`Split percentages must sum to 100% (got ${totalBps / 100}%)`)
+  }
 
   // Step 1: Get a preliminary quote to know the expected output
   const preliminaryQuote = await fetchQuote({
@@ -307,29 +319,93 @@ export async function fetchSplitQuote(params: {
     throw new Error('Could not determine expected output amount')
   }
 
-  // Step 2: Encode the distribute call
+  // Step 2: Encode the appropriate distribute call based on protocol
   const isNativeToken = toToken === NATIVE_TOKEN
-  const distributeCallData = isNativeToken
-    ? encodeFunctionData({
-        abi: SPLITTER_ABI,
-        functionName: 'distributeETH',
-        args: [recipients as `0x${string}`[], bps.map(b => BigInt(b))],
-      })
-    : encodeFunctionData({
-        abi: SPLITTER_ABI,
-        functionName: 'distribute',
-        args: [
-          toToken as `0x${string}`,
-          recipients as `0x${string}`[],
-          bps.map(b => BigInt(b)),
-        ],
-      })
+  const isAaveProtocol = protocol === 'aave'
+  const aavePoolAddress = getAavePoolAddress(toChain)
 
-  // Step 3: If also using Aave, we need to chain the calls
-  // For now, splits are only supported for direct token transfers (no Aave)
-  // TODO: Support splits + Aave by having the splitter forward to Aave after splitting
+  // For Aave + splits, we need to use distributeToAave
+  if (isAaveProtocol) {
+    if (!aavePoolAddress) {
+      throw new Error(`Aave not supported on chain ${toChain}`)
+    }
+    if (isNativeToken) {
+      throw new Error('Aave deposits do not support native ETH. Please use WETH instead.')
+    }
+  }
 
-  // Step 4: Use LI.FI's Contract Calls API
+  let distributeCallData: `0x${string}`
+  if (isAaveProtocol && aavePoolAddress) {
+    // Use distributeToAave for Aave + splits
+    distributeCallData = encodeFunctionData({
+      abi: SPLITTER_ABI,
+      functionName: 'distributeToAave',
+      args: [
+        toToken as `0x${string}`,
+        aavePoolAddress as `0x${string}`,
+        recipients as `0x${string}`[],
+        bps.map(b => BigInt(b)),
+      ],
+    })
+  } else if (isNativeToken) {
+    distributeCallData = encodeFunctionData({
+      abi: SPLITTER_ABI,
+      functionName: 'distributeETH',
+      args: [recipients as `0x${string}`[], bps.map(b => BigInt(b))],
+    })
+  } else {
+    distributeCallData = encodeFunctionData({
+      abi: SPLITTER_ABI,
+      functionName: 'distribute',
+      args: [
+        toToken as `0x${string}`,
+        recipients as `0x${string}`[],
+        bps.map(b => BigInt(b)),
+      ],
+    })
+  }
+
+  // Debug: Log the contract call details
+  console.log('[fetchSplitQuote] Building contract call:', {
+    splitterAddress,
+    recipients,
+    bps,
+    expectedOutput,
+    isNativeToken,
+    isAaveProtocol,
+    aavePoolAddress,
+  })
+  console.log('[fetchSplitQuote] distributeCallData:', distributeCallData)
+
+  // Step 3: Use LI.FI's Contract Calls API
+  // Gas limit calculation: base + per-recipient cost (higher for Aave due to supply calls)
+  const gasLimitPerRecipient = isAaveProtocol ? 150000 : 60000
+  const baseGasLimit = isAaveProtocol ? 200000 : 150000
+  const totalGasLimit = baseGasLimit + splits.length * gasLimitPerRecipient
+
+  const requestBody = {
+    fromChain,
+    toChain,
+    fromToken,
+    toToken,
+    fromAmount,
+    fromAddress,
+    toAddress: splitterAddress,
+    contractCalls: [
+      {
+        fromAmount: expectedOutput,
+        fromTokenAddress: toToken,
+        toContractAddress: splitterAddress,
+        toContractCallData: distributeCallData,
+        toContractGasLimit: String(totalGasLimit),
+      },
+    ],
+    integrator: 'feedme',
+    fee: '0',
+  }
+
+  console.log('[fetchSplitQuote] LI.FI request body:', JSON.stringify(requestBody, null, 2))
+
   const response = await fetch('https://li.quest/v1/quote/contractCalls', {
     method: 'POST',
     headers: {
@@ -338,34 +414,28 @@ export async function fetchSplitQuote(params: {
         'x-lifi-api-key': import.meta.env.VITE_LIFI_API_KEY,
       }),
     },
-    body: JSON.stringify({
-      fromChain,
-      toChain,
-      fromToken,
-      toToken,
-      fromAmount,
-      fromAddress,
-      toAddress: splitterAddress,
-      contractCalls: [
-        {
-          fromAmount: expectedOutput,
-          fromTokenAddress: toToken,
-          toContractAddress: splitterAddress,
-          toContractCallData: distributeCallData,
-          toContractGasLimit: String(100000 + splits.length * 50000), // Base gas + per-recipient
-        },
-      ],
-      integrator: 'feedme',
-      fee: '0',
-    }),
+    body: JSON.stringify(requestBody),
   })
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `LI.FI API error: ${response.status}`)
+  const responseText = await response.text()
+  console.log('[fetchSplitQuote] LI.FI raw response:', responseText)
+
+  let splitQuote
+  try {
+    splitQuote = JSON.parse(responseText)
+  } catch {
+    throw new Error(`LI.FI API returned invalid JSON: ${responseText.slice(0, 200)}`)
   }
 
-  const splitQuote = await response.json()
+  if (!response.ok) {
+    console.error('[fetchSplitQuote] LI.FI API error:', splitQuote)
+    throw new Error(splitQuote.message || `LI.FI API error: ${response.status}`)
+  }
+
+  console.log('[fetchSplitQuote] LI.FI quote received:', {
+    transactionRequest: splitQuote.transactionRequest,
+    estimate: splitQuote.estimate,
+  })
 
   return {
     ...splitQuote,

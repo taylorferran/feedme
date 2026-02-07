@@ -16,6 +16,7 @@ const MONSTER_TYPES = [
   { id: 'blob', emoji: '👾', name: 'Blob' },
   { id: 'kraken', emoji: '🦑', name: 'Kraken' },
   { id: 'plant', emoji: '🌱', name: 'Plant' },
+  { id: 'ghost', emoji: '👻', name: 'Ghost' },
 ]
 
 export function Setup() {
@@ -76,9 +77,9 @@ export function Setup() {
     <div className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Setup Your Monster</h1>
-          <p className="text-zinc-400">
-            Configure where your payments should go. Settings are stored on ENS (Ethereum mainnet).
+          <h1 className="text-4xl font-horror text-red-700 mb-2">Summon Your Creature</h1>
+          <p className="text-stone-500">
+            Configure where your payments should flow. Settings are inscribed on ENS (Ethereum mainnet).
           </p>
         </div>
 
@@ -87,9 +88,9 @@ export function Setup() {
           {isConnected && !isOnMainnet && (
             <button
               onClick={() => switchChain({ chainId: mainnet.id })}
-              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm"
+              className="px-4 py-2 bg-amber-900 hover:bg-amber-800 border border-amber-700 rounded-sm text-sm font-brutal tracking-wider"
             >
-              Switch to Ethereum
+              SWITCH TO ETHEREUM
             </button>
           )}
         </div>
@@ -97,30 +98,30 @@ export function Setup() {
         {isConnected && isOnMainnet ? (
           <div className="space-y-6">
             {/* ENS Name Input */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                Your ENS Name
+            <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+              <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                YOUR ENS NAME
               </label>
               <input
                 type="text"
                 value={ensName}
                 onChange={(e) => setEnsName(e.target.value)}
                 placeholder="yourname.eth"
-                className="w-full px-4 py-3 bg-zinc-800 rounded-lg border border-zinc-700 focus:border-purple-500 focus:outline-none"
+                className="w-full px-4 py-3 bg-stone-900 rounded-sm border-2 border-stone-700 focus:border-red-700 focus:outline-none font-mono"
               />
               {ensName && (
-                <div className="mt-2 text-sm">
+                <div className="mt-2 text-sm font-mono">
                   {isCheckingOwner ? (
-                    <span className="text-zinc-500">Checking ownership...</span>
+                    <span className="text-stone-600">Checking ownership...</span>
                   ) : isOwner ? (
-                    <span className="text-green-400">✓ You own this name</span>
+                    <span className="text-green-500">✓ You control this name</span>
                   ) : ensOwner ? (
-                    <span className="text-red-400">✗ You don't own this name</span>
+                    <span className="text-red-500">✗ You don't control this name</span>
                   ) : (
-                    <span className="text-zinc-500">Name not found</span>
+                    <span className="text-stone-600">Name not found</span>
                   )}
                   {resolverAddress && (
-                    <div className="text-zinc-500 text-xs mt-1">
+                    <div className="text-stone-700 text-xs mt-1">
                       Resolver: {resolverAddress.slice(0, 10)}...
                     </div>
                   )}
@@ -129,9 +130,9 @@ export function Setup() {
             </div>
 
             {/* Chain Selection */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                What chain does your monster live on?
+            <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+              <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                CREATURE'S REALM
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {Object.entries(SUPPORTED_CHAINS).map(([key, chain]) => (
@@ -149,26 +150,26 @@ export function Setup() {
                         setSplits([])
                       }
                     }}
-                    className={`p-4 rounded-lg border transition-colors ${
+                    className={`p-4 rounded-sm border-2 transition-all ${
                       selectedChain === key
-                        ? 'bg-purple-600 border-purple-500'
-                        : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
+                        ? 'bg-red-900/50 border-red-700 shadow-[0_0_20px_rgba(153,27,27,0.3)]'
+                        : 'bg-stone-900 hover:bg-stone-800 border-stone-700 hover:border-stone-600'
                     }`}
                   >
                     <span className="text-2xl">{chain.icon}</span>
-                    <div className="mt-2 font-medium">{chain.name}</div>
+                    <div className="mt-2 font-brutal tracking-wider text-sm">{chain.name}</div>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Protocol Selection */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                Where does your monster live?
+            <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+              <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                CREATURE'S LAIR
               </label>
               {!selectedChain ? (
-                <p className="text-zinc-500 text-sm">Select a chain first</p>
+                <p className="text-stone-600 text-sm font-mono">Select a realm first</p>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
                   {Object.entries(SUPPORTED_PROTOCOLS).map(([key, protocol]) => {
@@ -183,20 +184,24 @@ export function Setup() {
                           if (selectedToken && !isTokenAcceptedByProtocol(selectedToken, key)) {
                             setSelectedToken('')
                           }
+                          // Clear splits if switching away from Aave (splits only work with Aave)
+                          if (key !== 'aave' && splits.length > 0) {
+                            setSplits([])
+                          }
                         }}
                         disabled={!isAvailable}
-                        className={`p-4 rounded-lg border transition-colors ${
+                        className={`p-4 rounded-sm border-2 transition-all ${
                           selectedProtocol === key
-                            ? 'bg-purple-600 border-purple-500'
+                            ? 'bg-red-900/50 border-red-700 shadow-[0_0_20px_rgba(153,27,27,0.3)]'
                             : isAvailable
-                            ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
-                            : 'bg-zinc-900 border-zinc-800 opacity-40 cursor-not-allowed'
+                            ? 'bg-stone-900 hover:bg-stone-800 border-stone-700 hover:border-stone-600'
+                            : 'bg-stone-950 border-stone-900 opacity-40 cursor-not-allowed'
                         }`}
                       >
                         <span className="text-2xl">{protocol.icon}</span>
-                        <div className="mt-2 font-medium">{protocol.name}</div>
-                        <div className="text-xs text-zinc-500">
-                          {isAvailable ? protocol.action : 'Not on this chain'}
+                        <div className="mt-2 font-brutal tracking-wider text-sm">{protocol.name}</div>
+                        <div className="text-xs text-stone-600 font-mono">
+                          {isAvailable ? protocol.action : 'Not in this realm'}
                         </div>
                       </button>
                     )
@@ -206,12 +211,12 @@ export function Setup() {
             </div>
 
             {/* Token Selection */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                What does your monster eat?
+            <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+              <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                CREATURE'S DIET
               </label>
               {!selectedProtocol ? (
-                <p className="text-zinc-500 text-sm">Select a protocol first</p>
+                <p className="text-stone-600 text-sm font-mono">Select a lair first</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {SUPPORTED_TOKENS.map((token) => {
@@ -221,12 +226,12 @@ export function Setup() {
                         key={token}
                         onClick={() => isAccepted && setSelectedToken(token)}
                         disabled={!isAccepted}
-                        className={`px-4 py-2 rounded-lg border transition-colors ${
+                        className={`px-4 py-2 rounded-sm border-2 transition-all font-mono ${
                           selectedToken === token
-                            ? 'bg-purple-600 border-purple-500'
+                            ? 'bg-red-900/50 border-red-700 shadow-[0_0_20px_rgba(153,27,27,0.3)]'
                             : isAccepted
-                            ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
-                            : 'bg-zinc-900 border-zinc-800 opacity-40 cursor-not-allowed'
+                            ? 'bg-stone-900 hover:bg-stone-800 border-stone-700 hover:border-stone-600'
+                            : 'bg-stone-950 border-stone-900 opacity-40 cursor-not-allowed'
                         }`}
                       >
                         {token}
@@ -238,79 +243,83 @@ export function Setup() {
             </div>
 
             {/* Monster Name */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                Name your monster
+            <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+              <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                NAME YOUR CREATURE
               </label>
               <input
                 type="text"
                 value={monsterName}
                 onChange={(e) => setMonsterName(e.target.value)}
                 placeholder="Chompy"
-                className="w-full px-4 py-3 bg-zinc-800 rounded-lg border border-zinc-700 focus:border-purple-500 focus:outline-none"
+                className="w-full px-4 py-3 bg-stone-900 rounded-sm border-2 border-stone-700 focus:border-red-700 focus:outline-none font-mono"
               />
             </div>
 
             {/* Monster Type */}
-            <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-              <label className="block text-sm font-medium mb-3">
-                Choose your monster type
+            <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+              <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                CREATURE FORM
               </label>
               <div className="flex flex-wrap gap-3">
                 {MONSTER_TYPES.map((type) => (
                   <button
                     key={type.id}
                     onClick={() => setMonsterType(type.id)}
-                    className={`p-4 rounded-lg border transition-colors ${
+                    className={`p-4 rounded-sm border-2 transition-all ${
                       monsterType === type.id
-                        ? 'bg-purple-600 border-purple-500'
-                        : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700'
+                        ? 'bg-red-900/50 border-red-700 shadow-[0_0_20px_rgba(153,27,27,0.3)]'
+                        : 'bg-stone-900 hover:bg-stone-800 border-stone-700 hover:border-stone-600'
                     }`}
                   >
                     <span className="text-3xl">{type.emoji}</span>
-                    <div className="mt-1 text-sm">{type.name}</div>
+                    <div className="mt-1 text-xs font-brutal tracking-wider">{type.name}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Payment Splits (V2) - Only available on Base */}
-            {selectedChain && isSplitterSupported(getChainId(selectedChain)) ? (
+            {/* Payment Splits - Only available with Aave on Base */}
+            {selectedChain && selectedProtocol === 'aave' && isSplitterSupported(getChainId(selectedChain)) ? (
               <SplitConfig
                 splits={splits}
                 onChange={setSplits}
                 disabled={isPending || isConfirming}
               />
-            ) : selectedChain ? (
-              <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-                <label className="block text-sm font-medium mb-3">
-                  Payment Splits
+            ) : selectedChain && selectedProtocol ? (
+              <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
+                <label className="block text-xs font-brutal tracking-widest text-stone-500 mb-3">
+                  PAYMENT SPLITS
                 </label>
-                <p className="text-zinc-500 text-sm">
-                  Payment splits are only available on Base. Switch to Base to enable splits.
+                <p className="text-stone-600 text-sm font-mono">
+                  {selectedProtocol !== 'aave'
+                    ? 'Payment splits are only available with Aave protocol. Select Aave to enable splits.'
+                    : !isSplitterSupported(getChainId(selectedChain))
+                    ? 'Payment splits are only available on Base. Switch to Base to enable splits.'
+                    : 'Select a protocol to configure splits.'}
                 </p>
               </div>
             ) : null}
 
             {/* Preview */}
             {isFormComplete && (
-              <div className="bg-zinc-900 rounded-xl p-6 border border-purple-500/50">
-                <h3 className="font-medium mb-3">Preview</h3>
+              <div className="bg-stone-950 rounded-sm p-6 border-2 border-red-800/50 shadow-[0_0_30px_rgba(153,27,27,0.2)]">
+                <h3 className="font-brutal tracking-widest text-stone-500 text-xs mb-3">CREATURE PREVIEW</h3>
                 <div className="text-center py-4">
-                  <span className="text-6xl">
+                  <span className="text-6xl drop-shadow-[0_0_30px_rgba(153,27,27,0.5)]">
                     {MONSTER_TYPES.find((t) => t.id === monsterType)?.emoji}
                   </span>
-                  <div className="mt-3 text-xl font-bold">{monsterName}</div>
-                  <p className="text-zinc-400 mt-2">
-                    Lives in {SUPPORTED_PROTOCOLS[selectedProtocol as keyof typeof SUPPORTED_PROTOCOLS]?.name} on{' '}
-                    {SUPPORTED_CHAINS[selectedChain as keyof typeof SUPPORTED_CHAINS]?.name}, eats {selectedToken}
+                  <div className="mt-3 text-2xl font-horror text-red-600">{monsterName}</div>
+                  <p className="text-stone-500 mt-2 font-mono text-sm">
+                    Dwells in {SUPPORTED_PROTOCOLS[selectedProtocol as keyof typeof SUPPORTED_PROTOCOLS]?.name} on{' '}
+                    {SUPPORTED_CHAINS[selectedChain as keyof typeof SUPPORTED_CHAINS]?.name}, devours {selectedToken}
                   </p>
                   {splits.length > 0 && splitsValidation.isValid && (
-                    <div className="mt-3 text-sm text-zinc-400">
-                      <span className="text-purple-400">Payment splits enabled:</span>
-                      <div className="mt-1 space-y-1">
+                    <div className="mt-3 text-sm">
+                      <span className="text-red-500 font-brutal tracking-wider text-xs">SPLITS ENABLED:</span>
+                      <div className="mt-1 space-y-1 font-mono text-xs">
                         {splits.map((split, i) => (
-                          <div key={i} className="text-zinc-500">
+                          <div key={i} className="text-stone-600">
                             {split.recipient.length > 20
                               ? `${split.recipient.slice(0, 10)}...${split.recipient.slice(-6)}`
                               : split.recipient || '(empty)'
@@ -320,7 +329,7 @@ export function Setup() {
                       </div>
                     </div>
                   )}
-                  <p className="text-sm text-zinc-500 mt-4">
+                  <p className="text-xs text-stone-700 mt-4 font-mono">
                     feedme.finance/{ensName}
                   </p>
                 </div>
@@ -329,23 +338,23 @@ export function Setup() {
 
             {/* Error display */}
             {error && (
-              <div className="bg-red-900/20 border border-red-500 rounded-xl p-4 text-red-400">
-                Error: {error.message}
+              <div className="bg-red-950/50 border-2 border-red-800 rounded-sm p-4 text-red-400 font-mono text-sm">
+                <span className="font-brutal tracking-wider text-red-500">ERROR:</span> {error.message}
               </div>
             )}
 
             {/* Success display */}
             {isSuccess && hash && (
-              <div className="bg-green-900/20 border border-green-500 rounded-xl p-4 text-green-400">
-                <p className="font-medium">Success! Your FeedMe is configured.</p>
-                <p className="text-sm mt-1 text-green-300">Redirecting to your monster page...</p>
+              <div className="bg-green-950/30 border-2 border-green-800 rounded-sm p-4 text-green-400">
+                <p className="font-brutal tracking-widest">CREATURE SUMMONED SUCCESSFULLY</p>
+                <p className="text-sm mt-1 text-green-300 font-mono">Transporting to your creature...</p>
                 <a
                   href={`https://etherscan.io/tx/${hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm underline mt-2 inline-block"
+                  className="text-sm font-mono underline mt-2 inline-block hover:text-green-200"
                 >
-                  View transaction
+                  [ view transaction → ]
                 </a>
               </div>
             )}
@@ -354,28 +363,28 @@ export function Setup() {
             <button
               onClick={handleSubmit}
               disabled={!isFormComplete || !isOwner || isPending || isConfirming}
-              className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-xl font-medium transition-colors"
+              className="w-full py-4 bg-red-900 hover:bg-red-800 disabled:bg-stone-900 disabled:text-stone-600 disabled:border-stone-800 border-2 border-red-700 rounded-sm font-bold transition-all hover:shadow-[0_0_30px_rgba(153,27,27,0.4)] font-brutal tracking-widest text-lg"
             >
               {isPending
-                ? 'Confirm in wallet...'
+                ? 'CONFIRM IN WALLET...'
                 : isConfirming
-                ? 'Saving to ENS...'
-                : 'Save to ENS'}
+                ? 'INSCRIBING TO ENS...'
+                : '🩸 SUMMON CREATURE'}
             </button>
 
             {!isOwner && ensName && !isCheckingOwner && (
-              <p className="text-center text-sm text-zinc-500">
-                You must own the ENS name to save settings
+              <p className="text-center text-sm text-stone-600 font-mono">
+                You must control the ENS name to inscribe settings
               </p>
             )}
           </div>
         ) : isConnected ? (
-          <div className="text-center py-12 text-zinc-500">
-            Please switch to Ethereum mainnet to configure your ENS
+          <div className="text-center py-12 text-stone-600 font-brutal tracking-wider">
+            SWITCH TO ETHEREUM MAINNET TO INSCRIBE YOUR ENS
           </div>
         ) : (
-          <div className="text-center py-12 text-zinc-500">
-            Connect your wallet to get started
+          <div className="text-center py-12 text-stone-600 font-brutal tracking-wider">
+            CONNECT YOUR WALLET TO BEGIN THE RITUAL
           </div>
         )}
       </div>

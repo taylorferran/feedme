@@ -1,14 +1,36 @@
 @import "tailwindcss";
 
+/* Import horror fonts - Creepster for display, Oswald for brutalist headings */
+@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
-  --background: #0a0a0f;
-  --foreground: #fafafa;
-  --primary: #8b5cf6;
-  --primary-hover: #7c3aed;
-  --secondary: #1e1e2e;
-  --accent: #22c55e;
-  --muted: #71717a;
-  --border: #27272a;
+  /* Brutalist Horror Color Palette */
+  --background: #0a0a0a;
+  --background-secondary: #121212;
+  --foreground: #e8e4e0;
+  --foreground-muted: #a8a29e;
+
+  /* Blood red primary */
+  --primary: #991b1b;
+  --primary-hover: #b91c1c;
+  --primary-glow: rgba(153, 27, 27, 0.3);
+
+  /* Toxic green accent */
+  --accent: #4ade80;
+  --accent-dark: #166534;
+
+  /* Bone/decay tones */
+  --bone: #d6d3d1;
+  --decay: #78716c;
+
+  /* Horror borders */
+  --border: #292524;
+  --border-harsh: #44403c;
+
+  /* Status colors */
+  --success: #22c55e;
+  --error: #dc2626;
+  --warning: #ca8a04;
 }
 
 body {
@@ -16,9 +38,223 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Oswald', system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.02em;
 }
 
 #root {
   min-height: 100vh;
+  background:
+    radial-gradient(ellipse at top, rgba(153, 27, 27, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(74, 222, 128, 0.03) 0%, transparent 50%),
+    var(--background);
+}
+
+/* Custom utility classes for horror theme */
+@layer utilities {
+  .font-horror {
+    font-family: 'Creepster', cursive;
+    letter-spacing: 0.05em;
+  }
+
+  .font-brutal {
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .text-blood {
+    color: var(--primary);
+  }
+
+  .text-toxic {
+    color: var(--accent);
+  }
+
+  .bg-blood {
+    background-color: var(--primary);
+  }
+
+  .border-blood {
+    border-color: var(--primary);
+  }
+
+  .glow-blood {
+    box-shadow: 0 0 20px var(--primary-glow), 0 0 40px rgba(153, 27, 27, 0.1);
+  }
+
+  .glow-toxic {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.2), 0 0 40px rgba(74, 222, 128, 0.1);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-harsh);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Input focus states */
+input:focus, button:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Selection styling */
+::selection {
+  background: var(--primary);
+  color: var(--foreground);
+}
+
+/* Horror Animations */
+@keyframes bloodDrip {
+  0% {
+    box-shadow: 0 0 0 rgba(153, 27, 27, 0);
+    border-color: #44403c;
+  }
+  25% {
+    box-shadow: 0 2px 4px rgba(153, 27, 27, 0.3), 0 4px 8px rgba(153, 27, 27, 0.2);
+    border-color: #991b1b;
+  }
+  50% {
+    box-shadow: 0 4px 8px rgba(153, 27, 27, 0.4), 0 8px 16px rgba(153, 27, 27, 0.2);
+    border-color: #b91c1c;
+  }
+  75% {
+    box-shadow: 0 2px 4px rgba(153, 27, 27, 0.3), 0 4px 8px rgba(153, 27, 27, 0.2);
+    border-color: #991b1b;
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(153, 27, 27, 0);
+    border-color: #44403c;
+  }
+}
+
+@keyframes scaryShake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  10% { transform: translateX(-2px) rotate(-1deg); }
+  20% { transform: translateX(2px) rotate(1deg); }
+  30% { transform: translateX(-2px) rotate(-1deg); }
+  40% { transform: translateX(2px) rotate(1deg); }
+  50% { transform: translateX(-2px) rotate(-1deg); }
+  60% { transform: translateX(2px) rotate(1deg); }
+  70% { transform: translateX(-2px) rotate(-1deg); }
+  80% { transform: translateX(2px) rotate(1deg); }
+  90% { transform: translateX(-1px) rotate(0); }
+}
+
+@keyframes demonGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(153, 27, 27, 0.3);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(153, 27, 27, 0.6), 0 0 60px rgba(153, 27, 27, 0.3), inset 0 0 20px rgba(153, 27, 27, 0.1);
+    filter: brightness(1.1);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(153, 27, 27, 0.3);
+    filter: brightness(1);
+  }
+}
+
+@keyframes successScream {
+  0% {
+    transform: scale(1) rotate(0);
+    filter: hue-rotate(0deg);
+  }
+  10% {
+    transform: scale(1.02) rotate(-1deg);
+  }
+  20% {
+    transform: scale(1.05) rotate(1deg);
+  }
+  30% {
+    transform: scale(1.02) rotate(-1deg);
+  }
+  40% {
+    transform: scale(1.08) rotate(0);
+  }
+  50% {
+    transform: scale(1.1) rotate(1deg);
+    filter: hue-rotate(-10deg);
+  }
+  60% {
+    transform: scale(1.05) rotate(-1deg);
+  }
+  70% {
+    transform: scale(1.02) rotate(1deg);
+  }
+  80% {
+    transform: scale(1.01) rotate(-0.5deg);
+  }
+  90% {
+    transform: scale(1) rotate(0.5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    filter: hue-rotate(0deg);
+  }
+}
+
+@keyframes bloodPulse {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+  52% { opacity: 1; }
+  54% { opacity: 0.9; }
+  56% { opacity: 1; }
+}
+
+@layer utilities {
+  .animate-blood-drip {
+    animation: bloodDrip 2s ease-in-out infinite;
+  }
+
+  .animate-scary-shake {
+    animation: scaryShake 0.5s ease-in-out;
+  }
+
+  .animate-demon-glow {
+    animation: demonGlow 2s ease-in-out infinite;
+  }
+
+  .animate-success-scream {
+    animation: successScream 0.8s ease-out;
+  }
+
+  .animate-blood-pulse {
+    background: linear-gradient(90deg, #991b1b, #dc2626, #991b1b);
+    background-size: 200% 100%;
+    animation: bloodPulse 2s ease-in-out infinite;
+  }
+
+  .animate-flicker {
+    animation: flicker 3s ease-in-out infinite;
+  }
 }

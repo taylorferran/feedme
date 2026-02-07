@@ -18,6 +18,7 @@ This document explains how FeedMe works under the hood.
 │  │ - Pick chain/token  │         │ - Display monster           ││
 │  │ - Pick protocol     │         │ - Get LI.FI quote           ││
 │  │ - Name monster      │         │ - Execute feed transaction  ││
+│  │ - Configure splits  │         │                             ││
 │  │ - Write to ENS      │         │                             ││
 │  └─────────────────────┘         └─────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
@@ -37,6 +38,7 @@ This document explains how FeedMe works under the hood.
 │  │ feedme.protocol    = "aave"                                 ││
 │  │ feedme.monsterName = "Chompy"                               ││
 │  │ feedme.monsterType = "kraken"                               ││
+│  │ feedme.splits      = "alice.eth:50,bob.eth:30,carol.eth:20" ││
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                                     │
@@ -46,24 +48,33 @@ This document explains how FeedMe works under the hood.
 │                    (Cross-chain swap + bridge)                   │
 │                       MAINNET ONLY                               │
 │                                                                  │
+│  WITHOUT SPLITS:                                                 │
 │  1. Sender has ETH on Arbitrum                                  │
 │  2. LI.FI swaps ETH → USDC                                      │
 │  3. LI.FI bridges USDC to Base                                  │
 │  4. LI.FI deposits USDC into Aave on behalf of recipient        │
 │                                                                  │
+│  WITH SPLITS (Aave only):                                       │
+│  1. Sender has ETH on Arbitrum                                  │
+│  2. LI.FI swaps ETH → USDC                                      │
+│  3. LI.FI bridges USDC to Base                                  │
+│  4. LI.FI calls FeedMeSplitter.distributeToAave()               │
+│  5. Splitter deposits to Aave for EACH recipient                │
+│                                                                  │
 │  All in ONE transaction from sender's perspective               │
 └─────────────────────────────────────────────────────────────────┘
                                     │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      DeFi Protocol (Aave)                        │
-│                                                                  │
-│  Aave Pool.supply(asset, amount, onBehalfOf, referralCode)      │
-│                                    ▲                             │
-│                                    │                             │
-│                          recipient's address                     │
-│                          (resolved from ENS)                     │
-└─────────────────────────────────────────────────────────────────┘
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+┌───────────────────────────────┐   ┌───────────────────────────────┐
+│  FeedMeSplitter (Base)        │   │  DeFi Protocol (Aave)         │
+│  0xa3e22f29...ef456           │   │                               │
+│                               │   │  Pool.supply(asset, amount,   │
+│  distributeToAave(            │──▶│    onBehalfOf, referralCode)  │
+│    token, aavePool,           │   │                               │
+│    recipients[], bps[]        │   │  Called for EACH recipient    │
+│  )                            │   │  in the splits array          │
+└───────────────────────────────┘   └───────────────────────────────┘
 ```
 
 ---
@@ -104,7 +115,7 @@ ENS (Ethereum mainnet)          LI.FI (any mainnet chain)
 | `src/lib/wagmi.ts` | Wallet connection config (chains, transports) |
 | `src/lib/ens.ts` | ENS contract addresses and ABIs |
 | `src/lib/lifi.ts` | LI.FI SDK setup and quote fetching |
-| `src/lib/splitter.ts` | FeedMeSplitter contract address and ABI |
+| `src/lib/splitter.ts` | FeedMeSplitter contract address, ABI, and Aave pool addresses |
 | `src/lib/splits.ts` | Payment splits parsing and validation |
 | `src/types/feedme.ts` | TypeScript types and constants |
 
@@ -115,8 +126,9 @@ ENS (Ethereum mainnet)          LI.FI (any mainnet chain)
 | `useEnsConfig` | READ text records from ENS for a given name |
 | `useEnsOwner` | Check who owns an ENS name |
 | `useSetFeedMeConfig` | WRITE text records to ENS (multicall) |
-| `usePaymentQuote` | Get live swap quotes from LI.FI |
+| `usePaymentQuote` | Get live swap quotes from LI.FI (handles splits + Aave) |
 | `useFeedTransaction` | Execute LI.FI swap/bridge/deposit transaction |
+| `useResolvedSplits` | Resolve ENS names in splits to Ethereum addresses |
 
 ### Pages
 
@@ -404,6 +416,7 @@ Sender visits /yourname.eth
 │ - Reads all feedme.*    │
 │   text records          │
 │ - Returns config object │
+│   (including splits)    │
 └─────────────────────────┘
         │
         ▼
@@ -416,10 +429,18 @@ Sender visits /yourname.eth
         │
         ▼
 ┌─────────────────────────┐
+│ useResolvedSplits()     │  ✅ Implemented
+│ - Resolves ENS names    │
+│   in splits to addrs    │
+│ - e.g. alice.eth → 0x...│
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
 │ Feed Page renders       │
 │ - Shows monster         │
 │ - Shows recipient prefs │
-│ - Shows recipient addr  │
+│ - Shows split breakdown │
 └─────────────────────────┘
         │
         ▼
@@ -428,9 +449,10 @@ Sender enters amount, picks token/chain
         ▼
 ┌─────────────────────────┐
 │ usePaymentQuote()       │  ✅ Implemented
-│ - Calls LI.FI API       │
+│ - Detects if splits     │
+│ - Calls fetchSplitQuote │
+│   with protocol='aave'  │
 │ - Gets estimated output │
-│ - Shows route preview   │
 └─────────────────────────┘
         │
         ▼
@@ -446,8 +468,14 @@ Sender clicks "FEED"
         │
         ▼
 ┌─────────────────────────┐
+│ WITHOUT SPLITS:         │
 │ Recipient's Aave        │
 │ position increases!     │
+├─────────────────────────┤
+│ WITH SPLITS:            │
+│ Each split recipient's  │
+│ Aave position increases!│
+│ (all in one tx)         │
 └─────────────────────────┘
 ```
 
@@ -465,11 +493,13 @@ Sender clicks "FEED"
 
 ## Supported Protocols
 
-| Protocol | Action | Contract Call |
-|----------|--------|---------------|
-| Aave V3 | Deposit | `supply(asset, amount, onBehalfOf, referralCode)` |
-| Lido | Stake | `submit(referral)` + transfer to recipient |
-| Aerodrome | LP | `addLiquidity(...)` |
+| Protocol | Action | Contract Call | Splits Support |
+|----------|--------|---------------|----------------|
+| Aave V3 | Deposit | `supply(asset, amount, onBehalfOf, referralCode)` | ✅ Yes (via FeedMeSplitter) |
+| Lido | Stake | `submit(referral)` + transfer to recipient | ❌ No |
+| Aerodrome | LP | `addLiquidity(...)` | ❌ No |
+
+**Note**: Payment splits are ONLY available with Aave protocol. This is intentional to keep the UX simple while enabling the most powerful use case (splitting yield-bearing deposits).
 
 ---
 
@@ -483,7 +513,7 @@ Public Resolver: 0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63
 
 ### FeedMeSplitter
 ```
-Base: 0xdae12bd760ce15AaDdcD883E54a8F86f9084d3fB
+Base: 0xa3e22f29A1B91d672F600D90e28bca45C53ef456 (v4 - with distributeToAave)
 ```
 
 ### Aave V3 Pool
@@ -811,20 +841,22 @@ Note: For cross-chain transactions, `isSuccess` means the source chain tx is con
 
 ---
 
-## FeedMeSplitter Contract: Payment Splits
+## FeedMeSplitter Contract: Payment Splits + Aave Deposits
 
 ### Overview
 
-The FeedMeSplitter contract enables splitting incoming payments to multiple recipients. When a sender pays to a monster with splits configured, the funds are distributed according to the configured percentages.
+The FeedMeSplitter contract enables splitting incoming payments to multiple recipients with optional Aave deposits. When a sender pays to a monster with splits configured, the funds are distributed according to the configured percentages—either as direct token transfers or as Aave supply deposits.
 
 ### Contract Details
 
 ```
 Chain:    Base
-Address:  0xdae12bd760ce15AaDdcD883E54a8F86f9084d3fB
+Address:  0xa3e22f29A1B91d672F600D90e28bca45C53ef456 (v4)
 ```
 
-### How Splits Work
+### How Splits + Aave Work
+
+**Important**: Payment splits are ONLY available with the Aave protocol. This is by design to keep the UX simple while enabling the most powerful use case: splitting yield-bearing deposits.
 
 ```
 Sender pays 1 ETH
@@ -834,36 +866,47 @@ Sender pays 1 ETH
 │ LI.FI (swap/bridge)      │
 │ - Swaps ETH → USDC       │
 │ - Bridges to Base        │
-│ - Sends to Splitter      │
+│ - Calls Splitter         │
 └──────────────────────────┘
        │
        ▼
 ┌──────────────────────────┐
 │ FeedMeSplitter Contract  │
 │                          │
-│ distribute(USDC, [       │
+│ distributeToAave(USDC,   │
+│   aavePool, [            │
 │   alice: 5000 bps (50%)  │
 │   bob:   3000 bps (30%)  │
 │   carol: 2000 bps (20%)  │
 │ ])                       │
 └──────────────────────────┘
        │
-       ├──► Alice receives 500 USDC
-       ├──► Bob receives 300 USDC
-       └──► Carol receives 200 USDC
+       ├──► Alice's Aave position +500 USDC (aTokens)
+       ├──► Bob's Aave position +300 USDC (aTokens)
+       └──► Carol's Aave position +200 USDC (aTokens)
 ```
+
+Each recipient receives aTokens directly in their Aave position—they immediately start earning yield!
 
 ### Contract Functions
 
 ```solidity
-// Distribute ERC20 tokens
-function distribute(
+// Distribute ERC20 tokens to Aave positions (used for splits)
+function distributeToAave(
     address token,           // Token to distribute
+    address aavePool,        // Aave V3 Pool address
     address[] recipients,    // Array of recipient addresses
     uint256[] bps           // Basis points (10000 = 100%)
 ) external;
 
-// Distribute native ETH
+// Distribute ERC20 tokens directly (legacy, not used with Aave)
+function distribute(
+    address token,
+    address[] recipients,
+    uint256[] bps
+) external;
+
+// Distribute native ETH (not compatible with Aave)
 function distributeETH(
     address[] recipients,
     uint256[] bps
@@ -883,15 +926,18 @@ The last recipient gets the remainder to avoid dust from rounding.
 
 | Chain | Splitter Available | Address |
 |-------|-------------------|---------|
-| Base | Yes | `0xdae12bd760ce15AaDdcD883E54a8F86f9084d3fB` |
+| Base | Yes | `0xa3e22f29A1B91d672F600D90e28bca45C53ef456` |
 | Arbitrum | No (pending deployment) | - |
 | Mainnet | No (gas too expensive) | - |
 
 ### UI Behavior
 
-- Splits option only appears when Base is selected
-- Switching to mainnet/arbitrum clears any configured splits
-- Each split adds ~50k gas (~$0.01-0.05 on Base)
+- Splits option ONLY appears when:
+  1. Base is selected as the chain, AND
+  2. Aave is selected as the protocol
+- Selecting a non-Aave protocol clears any configured splits
+- Switching away from Base clears any configured splits
+- Each split adds ~150k gas for Aave deposits (~$0.02-0.10 on Base)
 
 ### ENS Text Record Format
 
@@ -906,12 +952,24 @@ Example:
 feedme.splits = "0x1234...abcd:50,collaborator.eth:30,gitcoin.eth:20"
 ```
 
+### How LI.FI Integration Works
+
+When splits + Aave is configured:
+
+1. Frontend calls `fetchSplitQuote()` with `protocol: 'aave'`
+2. LI.FI swaps/bridges tokens to Base
+3. LI.FI calls the Splitter's `distributeToAave()` function
+4. Splitter pulls tokens from LI.FI executor via `transferFrom`
+5. Splitter approves Aave Pool and calls `supply()` for each recipient
+6. Each recipient's Aave position increases (they receive aTokens)
+
 ### Code Reference
 
 ```typescript
-// src/lib/splitter.ts - Contract address and ABI
+// src/lib/splitter.ts - Contract address, ABI, and Aave pool addresses
 // src/lib/splits.ts - Parsing and validation
-// src/lib/lifi.ts - fetchSplitQuote() for LI.FI integration
+// src/lib/lifi.ts - fetchSplitQuote() with protocol parameter
+// src/hooks/usePaymentQuote.ts - Passes protocol to fetchSplitQuote
 ```
 
 ---

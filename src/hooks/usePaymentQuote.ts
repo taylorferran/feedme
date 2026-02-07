@@ -83,7 +83,7 @@ export function usePaymentQuote({
 
       if (hasSplits) {
         // Use split quote - sends to splitter contract which distributes
-        // Note: splits + Aave not yet supported (would need splitter to forward to Aave)
+        // For Aave protocol, uses distributeToAave to deposit each split to Aave
         result = await fetchSplitQuote({
           fromChain: fromChainId,
           toChain: toChainId,
@@ -92,6 +92,7 @@ export function usePaymentQuote({
           fromAmount: fromAmountWei,
           fromAddress: address,
           splits: splits,
+          protocol: protocol, // Pass protocol for Aave + splits
         })
       } else if (protocol === 'aave') {
         // Use contract calls quote for Aave (swap + deposit in one tx)

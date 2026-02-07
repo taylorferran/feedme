@@ -1,6 +1,7 @@
 // Recent feeders - fetch transaction history from Blockscout APIs
 
 export interface Feeder {
+  id: string // Unique ID for React keys (txHash + token)
   sender: string
   ensName: string | null
   amount: string
@@ -28,6 +29,24 @@ export const CHAIN_NAMES: Record<number, string> = {
   42161: 'Arbitrum',
 }
 
+// Whitelist of legitimate tokens (lowercase symbols)
+// This filters out spam/scam airdrops
+const LEGITIMATE_TOKENS = new Set([
+  // Stablecoins
+  'usdc', 'usdt', 'dai', 'usdc.e', 'usdce',
+  'usdt0', // Bridged USDT (Stargate/LayerZero)
+  // ETH variants
+  'eth', 'weth',
+  // Aave aTokens (Ethereum)
+  'ausdc', 'ausdt', 'adai', 'aweth', 'aeth',
+  // Aave aTokens (Base) - format: aBasUSDC
+  'abasusdc', 'abasweth', 'abasdai',
+  // Aave aTokens (Arbitrum) - format: aArbUSDC
+  'aarbusdc', 'aarbusdt', 'aarbweth', 'aarbdai',
+  // Aave variable debt tokens (to filter out, but recognize as legitimate)
+  'variabledebtethusdc', 'variabledebtbasusdc', 'variabledebtarbusdc',
+])
+
 interface BlockscoutTokenTransfer {
   from: { hash: string; name?: string }
   to: { hash: string }
@@ -35,6 +54,7 @@ interface BlockscoutTokenTransfer {
     symbol: string
     decimals: string
     name: string
+    address: string
   }
   total: {
     value: string
@@ -45,8 +65,40 @@ interface BlockscoutTokenTransfer {
   type: string
 }
 
+interface BlockscoutTransaction {
+  hash: string
+  from: { hash: string }
+  to: { hash: string } | null
+  timestamp: string
+}
+
+/**
+ * Check if a token is legitimate (not spam)
+ */
+function isLegitimateToken(symbol: string): boolean {
+  const lowerSymbol = symbol.toLowerCase()
+  return LEGITIMATE_TOKENS.has(lowerSymbol)
+}
+
+/**
+ * Fetch transaction details to get the original sender
+ */
+async function fetchTransactionSender(
+  blockscoutApi: string,
+  txHash: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(`${blockscoutApi}/transactions/${txHash}`)
+    const data: BlockscoutTransaction = await response.json()
+    return data.from?.hash || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Fetch recent feeders using Blockscout API
+ * Only returns legitimate token transfers (filters out spam airdrops)
  */
 export async function fetchRecentFeeders(
   recipientAddress: string,
@@ -61,77 +113,95 @@ export async function fetchRecentFeeders(
 
   try {
     const url = `${blockscoutApi}/addresses/${recipientAddress}/token-transfers?type=ERC-20`
-    console.log('Fetching feeders from:', url)
 
     const response = await fetch(url)
     const data = await response.json()
 
     if (!data.items || !Array.isArray(data.items)) {
-      console.warn('Blockscout API returned no items')
       return []
     }
 
-    console.log('Blockscout API returned', data.items.length, 'transfers')
+    // Filter for incoming transfers of legitimate tokens only
+    const incomingTxs = data.items.filter((tx: BlockscoutTokenTransfer) => {
+      const isIncoming = tx.to.hash.toLowerCase() === recipientAddress.toLowerCase()
+      const isLegitimate = isLegitimateToken(tx.token.symbol)
+      return isIncoming && isLegitimate
+    })
 
-    // Filter for incoming transfers only
-    const incomingTxs = data.items.filter((tx: BlockscoutTokenTransfer) =>
-      tx.to.hash.toLowerCase() === recipientAddress.toLowerCase()
-    )
+    // Process all transfers in parallel
+    const txsToProcess = incomingTxs.slice(0, limit)
 
-    console.log('Incoming transfers:', incomingTxs.length)
+    // First pass: identify which txs need sender lookup (Aave deposits from zero address)
+    const needsSenderLookup: { index: number; txHash: string }[] = []
 
-    const feeders: Feeder[] = incomingTxs
-      .slice(0, limit)
-      .map((tx: BlockscoutTokenTransfer): Feeder => {
-        // Check if this is an aToken (Aave deposit) - minted from zero address
-        const isAaveDeposit = tx.type === 'token_minting' ||
-          tx.from.hash.toLowerCase() === ZERO_ADDRESS ||
-          tx.token.symbol.toLowerCase().startsWith('a')
+    const feeders: Feeder[] = txsToProcess.map((tx: BlockscoutTokenTransfer, index: number) => {
+      // Check if this is an aToken (Aave deposit) - minted from zero address
+      const isAaveDeposit = tx.type === 'token_minting' ||
+        tx.from.hash.toLowerCase() === ZERO_ADDRESS ||
+        tx.token.symbol.toLowerCase().startsWith('a')
 
-        // Determine display token name
-        let displayToken = tx.token.symbol
-        if (isAaveDeposit && tx.token.symbol.toLowerCase().startsWith('a')) {
-          // Strip 'a' prefix and chain identifier for cleaner display
-          displayToken = tx.token.symbol
-            .replace(/^a(Bas|Arb|Eth)?/i, '')
-            .toUpperCase() || tx.token.symbol
-        }
+      // Determine display token name
+      let displayToken = tx.token.symbol
+      if (isAaveDeposit && tx.token.symbol.toLowerCase().startsWith('a')) {
+        displayToken = tx.token.symbol
+          .replace(/^a(Bas|Arb|Eth)?/i, '')
+          .toUpperCase() || tx.token.symbol
+      }
 
-        // Format sender
-        let sender = tx.from.hash
-        const lowerFrom = tx.from.hash.toLowerCase()
+      // Get sender - mark for lookup if it's a zero address mint
+      let sender = tx.from.hash
+      const lowerFrom = tx.from.hash.toLowerCase()
 
-        if (lowerFrom === ZERO_ADDRESS) {
-          sender = 'Aave' // Minted tokens from Aave
-        } else if (tx.from.name) {
-          // Use Blockscout's verified contract name
-          sender = tx.from.name
-        }
+      if (lowerFrom === ZERO_ADDRESS && isAaveDeposit) {
+        sender = 'Aave' // Default, will be updated in parallel
+        needsSenderLookup.push({ index, txHash: tx.transaction_hash })
+      } else if (tx.from.name) {
+        sender = tx.from.name
+      }
 
-        // Format amount
-        const decimals = parseInt(tx.total.decimals, 10) || 18
-        const rawAmount = BigInt(tx.total.value)
-        const divisor = BigInt(10 ** decimals)
-        const wholePart = rawAmount / divisor
-        const fractionalPart = rawAmount % divisor
-        const formattedAmount = `${wholePart}.${fractionalPart.toString().padStart(decimals, '0').slice(0, 2)}`
+      // Format amount
+      const decimals = parseInt(tx.total.decimals, 10) || 18
+      const rawAmount = BigInt(tx.total.value)
+      const divisor = BigInt(10 ** decimals)
+      const wholePart = rawAmount / divisor
+      const fractionalPart = rawAmount % divisor
+      const formattedAmount = `${wholePart}.${fractionalPart.toString().padStart(decimals, '0').slice(0, 2)}`
 
-        // Parse timestamp
-        const timestamp = Math.floor(new Date(tx.timestamp).getTime() / 1000)
+      // Parse timestamp
+      const timestamp = Math.floor(new Date(tx.timestamp).getTime() / 1000)
 
-        return {
-          sender,
-          ensName: null, // Will be resolved by the hook
-          amount: formattedAmount,
-          token: displayToken,
-          timestamp,
-          txHash: tx.transaction_hash,
-          chainId,
-          isAaveDeposit,
+      // Create unique ID (txHash + token address to handle multiple tokens in same tx)
+      const id = `${tx.transaction_hash}-${tx.token.address}`
+
+      return {
+        id,
+        sender,
+        ensName: null,
+        amount: formattedAmount,
+        token: displayToken,
+        timestamp,
+        txHash: tx.transaction_hash,
+        chainId,
+        isAaveDeposit,
+      }
+    })
+
+    // Fetch original senders in parallel (for Aave deposits)
+    if (needsSenderLookup.length > 0) {
+      const senderResults = await Promise.all(
+        needsSenderLookup.map(({ txHash }) =>
+          fetchTransactionSender(blockscoutApi, txHash)
+        )
+      )
+
+      // Update feeders with resolved senders
+      senderResults.forEach((sender, i) => {
+        if (sender) {
+          feeders[needsSenderLookup[i].index].sender = sender
         }
       })
+    }
 
-    console.log('Processed feeders:', feeders.length)
     return feeders
   } catch (error) {
     console.error('Error fetching recent feeders:', error)
@@ -147,19 +217,22 @@ export async function fetchRecentFeedersMultiChain(
   chainIds: number[] = [8453, 42161, 1],
   limitPerChain: number = 5
 ): Promise<Feeder[]> {
-  console.log('Fetching feeders for address:', recipientAddress, 'on chains:', chainIds)
-
   const results = await Promise.all(
     chainIds.map(chainId => fetchRecentFeeders(recipientAddress, chainId, limitPerChain))
   )
 
-  // Combine and sort by timestamp (most recent first)
+  // Combine, deduplicate by id, and sort by timestamp (most recent first)
+  const seen = new Set<string>()
   const combined = results
     .flat()
+    .filter(feeder => {
+      if (seen.has(feeder.id)) return false
+      seen.add(feeder.id)
+      return true
+    })
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 10)
 
-  console.log('Total feeders found:', combined.length)
   return combined
 }
 

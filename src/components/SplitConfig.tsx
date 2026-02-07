@@ -65,20 +65,20 @@ export function SplitConfig({ splits, onChange, disabled }: SplitConfigProps) {
 
   if (!isEnabled) {
     return (
-      <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+      <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
         <div className="flex items-center justify-between">
           <div>
-            <label className="block text-sm font-medium">Payment Splits</label>
-            <p className="text-xs text-zinc-500 mt-1">
-              Split incoming payments across multiple recipients
+            <label className="block text-xs font-brutal tracking-widest text-stone-500">PAYMENT SPLITS</label>
+            <p className="text-xs text-stone-600 mt-1 font-mono">
+              Split offerings across multiple recipients
             </p>
           </div>
           <button
             onClick={handleToggle}
             disabled={disabled}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-lg text-sm transition-colors"
+            className="px-4 py-2 bg-stone-900 hover:bg-stone-800 border border-stone-700 disabled:opacity-50 rounded-sm text-sm transition-colors font-brutal tracking-wider"
           >
-            Enable Splits
+            ENABLE
           </button>
         </div>
       </div>
@@ -86,20 +86,20 @@ export function SplitConfig({ splits, onChange, disabled }: SplitConfigProps) {
   }
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+    <div className="bg-stone-950 rounded-sm p-6 border-2 border-stone-800">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <label className="block text-sm font-medium">Payment Splits</label>
-          <p className="text-xs text-zinc-500 mt-1">
+          <label className="block text-xs font-brutal tracking-widest text-stone-500">PAYMENT SPLITS</label>
+          <p className="text-xs text-stone-600 mt-1 font-mono">
             Percentages must sum to 100%
           </p>
         </div>
         <button
           onClick={handleToggle}
           disabled={disabled}
-          className="px-3 py-1 text-xs text-zinc-400 hover:text-red-400 transition-colors"
+          className="px-3 py-1 text-xs text-stone-500 hover:text-red-500 transition-colors font-mono"
         >
-          Disable
+          [ disable ]
         </button>
       </div>
 
@@ -123,21 +123,21 @@ export function SplitConfig({ splits, onChange, disabled }: SplitConfigProps) {
         <button
           onClick={handleAddRecipient}
           disabled={disabled}
-          className="mt-4 w-full py-2 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-lg text-sm text-zinc-500 hover:text-zinc-400 transition-colors disabled:opacity-50"
+          className="mt-4 w-full py-2 border-2 border-dashed border-stone-700 hover:border-stone-600 rounded-sm text-sm text-stone-600 hover:text-stone-400 transition-colors disabled:opacity-50 font-mono"
         >
-          + Add Recipient
+          + add recipient
         </button>
       )}
 
       {/* Validation status */}
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex items-center gap-2 font-mono text-xs">
         {validation.isValid ? (
-          <span className="text-xs text-green-400">
-            Total: {splits.reduce((sum, s) => sum + s.percentage, 0)}%
+          <span className="text-green-500">
+            ✓ Total: {splits.reduce((sum, s) => sum + s.percentage, 0)}%
           </span>
         ) : (
-          <span className="text-xs text-red-400">
-            {validation.error}
+          <span className="text-red-500">
+            ✗ {validation.error}
           </span>
         )}
       </div>
@@ -181,19 +181,19 @@ function SplitRow({
           onChange={(e) => onRecipientChange(e.target.value)}
           disabled={disabled}
           placeholder={index === 0 ? "Your address or ENS (e.g., vitalik.eth)" : "Address or ENS name"}
-          className="w-full px-3 py-2 bg-zinc-800 rounded-lg border border-zinc-700 focus:border-purple-500 focus:outline-none text-sm disabled:opacity-50"
+          className="w-full px-3 py-2 bg-stone-900 rounded-sm border-2 border-stone-700 focus:border-red-700 focus:outline-none text-sm disabled:opacity-50 font-mono"
         />
         {/* ENS resolution status */}
         {shouldResolve && (
-          <div className="mt-1 text-xs">
+          <div className="mt-1 text-xs font-mono">
             {isResolving ? (
-              <span className="text-zinc-500">Resolving...</span>
+              <span className="text-stone-600">Resolving...</span>
             ) : resolvedAddress ? (
-              <span className="text-green-400">
+              <span className="text-green-500">
                 {resolvedAddress.slice(0, 6)}...{resolvedAddress.slice(-4)}
               </span>
             ) : (
-              <span className="text-red-400">Could not resolve</span>
+              <span className="text-red-500">Could not resolve</span>
             )}
           </div>
         )}
@@ -208,9 +208,9 @@ function SplitRow({
           value={split.percentage}
           onChange={(e) => onPercentageChange(parseInt(e.target.value, 10) || 0)}
           disabled={disabled}
-          className="w-16 px-2 py-2 bg-zinc-800 rounded-lg border border-zinc-700 focus:border-purple-500 focus:outline-none text-sm text-center disabled:opacity-50"
+          className="w-16 px-2 py-2 bg-stone-900 rounded-sm border-2 border-stone-700 focus:border-red-700 focus:outline-none text-sm text-center disabled:opacity-50 font-mono"
         />
-        <span className="text-zinc-500 text-sm">%</span>
+        <span className="text-stone-600 text-sm font-mono">%</span>
       </div>
 
       {/* Remove button */}
@@ -218,7 +218,7 @@ function SplitRow({
         <button
           onClick={onRemove}
           disabled={disabled}
-          className="p-2 text-zinc-500 hover:text-red-400 transition-colors disabled:opacity-50"
+          className="p-2 text-stone-600 hover:text-red-500 transition-colors disabled:opacity-50"
           title="Remove recipient"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
