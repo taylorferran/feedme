@@ -120,7 +120,7 @@ export function Setup() {
                   ) : (
                     <span className="text-stone-600">Name not found</span>
                   )}
-                  {resolverAddress && (
+                  {resolverAddress && resolverAddress !== '0x0000000000000000000000000000000000000000' && (
                     <div className="text-stone-700 text-xs mt-1">
                       Resolver: {resolverAddress.slice(0, 10)}...
                     </div>

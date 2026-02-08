@@ -26,10 +26,12 @@ export function useEnsConfig(ensName: string | undefined) {
   })
 
   // Use the name's resolver, or fall back to public resolver
-  const targetResolver = (resolverAddress as `0x${string}`) || ENS_CONTRACTS.publicResolver
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+  const hasResolver = resolverAddress && (resolverAddress as string) !== ZERO_ADDRESS
+  const targetResolver = hasResolver ? (resolverAddress as `0x${string}`) : ENS_CONTRACTS.publicResolver
 
   const { data, isLoading, error } = useReadContracts({
-    contracts: node && resolverAddress
+    contracts: node && hasResolver
       ? [
           {
             address: targetResolver,

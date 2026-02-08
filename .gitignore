@@ -30,3 +30,6 @@ contracts/cache/
 contracts/out/
 contracts/broadcast/
 contracts/lib/
+
+# Generated AI images
+generated_images/

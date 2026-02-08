@@ -1,21 +1,21 @@
 # FeedMe
 
-**Accept payments from any chain, in any token, deposited directly to DeFi.**
+**Accept cross-chain payments, deposited directly to DeFi—configured through your ENS name.**
 
-FeedMe is a payment portal that lets anyone pay you in their preferred token on their preferred chain, while you receive funds exactly how you want—swapped, bridged, and deposited into yield-generating protocols like Aave. All in a single transaction.
+FeedMe is a payment portal that lets anyone pay you from Ethereum, Base, or Arbitrum in ETH, USDC, WETH, or other supported tokens. Your payment preferences—destination chain, token, and DeFi protocol—are stored on your ENS name. Senders sign once; LI.FI handles the swap, bridge, and deposit into protocols like Aave, Lido, or Aerodrome.
 
 ## Features
 
 - **Cross-Chain Payments**: Accept ETH from Arbitrum and receive USDC on Base
-- **DeFi Deposits**: Payments go directly into your Aave position (you earn yield immediately)
-- **ENS-Based Configuration**: Your payment preferences are stored on your ENS name
-- **Payment Splits**: Split incoming payments to multiple recipients, each getting their share deposited to Aave
+- **DeFi Protocol Integration**: Payments deposit directly into Aave V3, Lido, or Aerodrome
+- **ENS-Based Configuration**: Your payment preferences are stored as text records on your ENS name
+- **Payment Splits**: Split incoming payments to multiple recipients (Aave on Base only)
 - **One Transaction**: Senders sign once; LI.FI handles swap, bridge, and deposit
 
 ## How It Works
 
 ```
-Sender (any chain, any token)
+Sender (Ethereum, Base, or Arbitrum)
         |
         v
 +---------------------------+
@@ -56,10 +56,10 @@ Sender pays 1000 USDC
 - **Frontend**: React + Vite + TypeScript
 - **Styling**: Tailwind CSS
 - **Wallet**: RainbowKit + wagmi + viem
-- **Cross-Chain**: LI.FI SDK
-- **Identity**: ENS (Ethereum Name Service)
+- **Cross-Chain**: LI.FI SDK (swap + bridge + contract calls)
+- **Identity**: ENS (Ethereum Name Service) for configuration storage
 - **Contracts**: Solidity + Foundry
-- **DeFi**: Aave V3
+- **DeFi Protocols**: Aave V3, Lido, Aerodrome
 
 ## Getting Started
 

@@ -147,7 +147,10 @@ export function useSetFeedMeConfig(resolverAddress?: `0x${string}`) {
     const node = getNamehash(normalizedName)
 
     // Use the name's resolver, or fall back to public resolver
-    const targetResolver = resolverAddress || ENS_CONTRACTS.publicResolver
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+    const targetResolver = resolverAddress && resolverAddress !== ZERO_ADDRESS
+      ? resolverAddress
+      : ENS_CONTRACTS.publicResolver
 
     console.log('Setting config on resolver:', targetResolver, 'for name:', normalizedName)
 
