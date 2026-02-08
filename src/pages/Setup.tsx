@@ -76,6 +76,14 @@ export function Setup() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
+        {/* Brand mark */}
+        <div className="mb-6">
+          <a href="/" className="inline-flex items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
+            <img src="/logo.png" alt="FeedMe" className="w-8 h-8 rounded-sm" />
+            <span className="font-horror text-lg text-red-800">FeedMe</span>
+          </a>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-4xl font-horror text-red-700 mb-2">Summon Your Creature</h1>
           <p className="text-stone-500">

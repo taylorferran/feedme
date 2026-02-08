@@ -2,9 +2,23 @@ import { Link } from 'react-router-dom'
 
 export function Home() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="text-center max-w-2xl">
-        <div className="text-8xl mb-6 animate-pulse drop-shadow-[0_0_30px_rgba(153,27,27,0.5)]">🐙</div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative overflow-hidden">
+      {/* Gothic cover background */}
+      <div
+        className="absolute inset-0 opacity-15 bg-cover bg-center"
+        style={{ backgroundImage: 'url(/cover.png)' }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-transparent to-[#0a0a0a]" />
+
+      <div className="text-center max-w-2xl relative z-10">
+        {/* Logo image */}
+        <div className="mb-6 flex justify-center">
+          <img
+            src="/logo.png"
+            alt="FeedMe"
+            className="w-32 h-32 rounded-sm animate-pulse drop-shadow-[0_0_30px_rgba(153,27,27,0.5)] border-2 border-red-900/30"
+          />
+        </div>
         <h1 className="font-horror text-6xl md:text-7xl mb-4 text-red-800 drop-shadow-[0_0_20px_rgba(153,27,27,0.4)]">
           FeedMe
         </h1>

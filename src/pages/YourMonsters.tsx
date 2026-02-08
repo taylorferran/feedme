@@ -21,8 +21,10 @@ export function YourMonsters() {
     <div className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <Link to="/" className="text-stone-600 hover:text-stone-400 text-sm mb-4 inline-block font-mono">
-            [ ← back to lair ]
+          <Link to="/" className="inline-flex items-center gap-3 opacity-70 hover:opacity-100 transition-opacity text-sm mb-4">
+            <img src="/logo.png" alt="FeedMe" className="w-8 h-8 rounded-sm" />
+            <span className="font-horror text-lg text-red-800">FeedMe</span>
+            <span className="text-stone-600 font-mono ml-2">← back to lair</span>
           </Link>
           <h1 className="text-4xl font-horror text-red-700 mb-2">Your Creatures</h1>
           <p className="text-stone-500">

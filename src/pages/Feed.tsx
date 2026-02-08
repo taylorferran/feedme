@@ -139,8 +139,22 @@ export function Feed() {
   }
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-md mx-auto">
+    <div className="min-h-screen p-8 relative overflow-hidden">
+      {/* Subtle gothic background */}
+      <div
+        className="absolute inset-0 opacity-8 bg-cover bg-center"
+        style={{ backgroundImage: 'url(/cover.png)' }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/95 to-[#0a0a0a]" />
+
+      <div className="max-w-md mx-auto relative z-10">
+        {/* Brand mark */}
+        <div className="flex justify-center mb-4">
+          <a href="/" className="opacity-60 hover:opacity-100 transition-opacity">
+            <img src="/logo.png" alt="FeedMe" className="w-10 h-10 rounded-sm" />
+          </a>
+        </div>
+
         {/* Monster Display - animates based on feeding state */}
         <div className="text-center mb-8">
           <div className={`text-9xl mb-4 drop-shadow-[0_0_40px_rgba(153,27,27,0.5)] transition-all duration-300 ${
