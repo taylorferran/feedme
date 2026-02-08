@@ -1,8 +1,8 @@
 # FeedMe
 
-**Accept cross-chain payments, deposited directly to DeFi—configured through your ENS name.**
+**Accept cross-chain payments, deposited directly to DeFi. Configured through your ENS name.**
 
-FeedMe is a payment portal that lets anyone pay you from Ethereum, Base, or Arbitrum in ETH, USDC, WETH, or other supported tokens. Your payment preferences—destination chain, token, and DeFi protocol—are stored on your ENS name. Senders sign once; LI.FI handles the swap, bridge, and deposit into protocols like Aave, Lido, or Aerodrome.
+FeedMe is a payment portal that lets anyone pay you from Ethereum, Base, or Arbitrum in ETH, USDC, WETH, or other supported tokens. Your payment preferences (destination chain, token, and DeFi protocol) are stored on your ENS name. Senders sign once and LI.FI handles the swap, bridge, and deposit into protocols like Aave, Lido, or Aerodrome.
 
 ## Features
 
@@ -10,7 +10,7 @@ FeedMe is a payment portal that lets anyone pay you from Ethereum, Base, or Arbi
 - **DeFi Protocol Integration**: Payments deposit directly into Aave V3, Lido, or Aerodrome
 - **ENS-Based Configuration**: Your payment preferences are stored as text records on your ENS name
 - **Payment Splits**: Split incoming payments to multiple recipients (Aave on Base only)
-- **One Transaction**: Senders sign once; LI.FI handles swap, bridge, and deposit
+- **One Transaction**: Senders sign once. LI.FI handles swap, bridge, and deposit
 
 ## How It Works
 
@@ -240,7 +240,7 @@ FeedMe stores configuration in ENS text records:
 
 ### For Senders (Pay)
 
-1. Visit `yoururl.com/yourname.eth`
+1. Visit `feedme-eta.vercel.app/yourname.eth`
 2. Connect wallet
 3. Enter amount and select your token/chain
 4. Click "FEED" and sign the transaction
@@ -276,14 +276,10 @@ FeedMe stores configuration in ENS text records:
 
 ## Security Considerations
 
-- **No custody**: Funds flow directly from sender to recipient's DeFi position
+- **No custody**: Funds go directly from sender to the recipient's DeFi position
 - **Immutable config**: ENS records can only be changed by the ENS owner
-- **Audited protocols**: Uses battle-tested Aave V3 and LI.FI
+- **Audited protocols**: Built on Aave V3 and LI.FI
 - **No admin keys**: FeedMeSplitter has no owner or upgrade mechanism
-
-## Contributing
-
-Contributions are welcome! Please read the [Technical Guide](TECHNICAL_GUIDE.md) for detailed architecture documentation.
 
 ## License
 
