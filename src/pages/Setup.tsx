@@ -338,7 +338,7 @@ export function Setup() {
                     </div>
                   )}
                   <p className="text-xs text-stone-700 mt-4 font-mono">
-                    feedme.finance/{ensName}
+                    feedme-eta.vercel.app/{ensName}
                   </p>
                 </div>
               </div>
