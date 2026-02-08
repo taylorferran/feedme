@@ -190,14 +190,8 @@ export function Feed() {
           </p>
         </div>
 
-        {/* Connect or Payment Form */}
-        {!isConnected ? (
-          <div className="text-center">
-            <p className="text-stone-500 mb-4 font-brutal tracking-wider">CONNECT TO FEED {monsterName.toUpperCase()}</p>
-            <ConnectButton />
-          </div>
-        ) : (
-          <div className="space-y-4">
+        {/* Payment Form - always visible for previewing */}
+        <div className="space-y-4">
             {/* Input - with bleeding animation when amount entered */}
             <div className={`bg-stone-950 rounded-sm p-6 border-2 transition-all duration-300 ${
               amount && parseFloat(amount) > 0
@@ -403,9 +397,14 @@ export function Feed() {
               </div>
             )}
 
-            {/* Switch Network or Feed Button */}
+            {/* Connect / Switch Network / Feed Button */}
             {!isSuccess && (
-              !isOnCorrectChain ? (
+              !isConnected ? (
+                <div className="flex flex-col items-center gap-3">
+                  <ConnectButton />
+                  <p className="text-xs text-stone-600 font-brutal tracking-wider">CONNECT WALLET TO FEED {monsterName.toUpperCase()}</p>
+                </div>
+              ) : !isOnCorrectChain ? (
                 <button
                   onClick={() => switchChain({ chainId: targetChainId as 1 | 8453 | 42161 })}
                   className="w-full py-4 bg-amber-900 hover:bg-amber-800 border-2 border-amber-700 rounded-sm font-bold text-xl transition-all font-brutal tracking-widest"
@@ -455,7 +454,6 @@ export function Feed() {
               monsterEmoji={monsterEmoji}
             />
           </div>
-        )}
       </div>
     </div>
   )
